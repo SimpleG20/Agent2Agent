@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini Agent Economy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>⚡ Mini Agent Economy</h1>
+    <p class="subtitle">A2A Discovery + Simulated Payment Prototype</p>
+  </header>
+
+  <main>
+    <!-- Wallet Panel -->
+    <section id="wallet-panel" class="panel">
+      <h2>💰 Wallet</h2>
+      <div class="wallet-info">
+        <span class="balance-label">Balance:</span>
+        <span id="balance" class="balance-value">--</span>
+        <span class="credit-label">credits</span>
+      </div>
+      <div class="wallet-actions">
+        <button id="btn-refresh-wallet" class="btn btn-sm">Refresh</button>
+        <button id="btn-add-credits" class="btn btn-sm btn-secondary">+ Add 10 credits</button>
+      </div>
+    </section>
+
+    <!-- Agent Discovery -->
+    <section id="discovery-panel" class="panel">
+      <h2>🔍 Agent Discovery</h2>
+      <div class="search-row">
+        <input type="text" id="skill-search" placeholder="Filter by skill (e.g. summary, translation, research)" />
+        <button id="btn-search" class="btn">Search</button>
+        <button id="btn-list-all" class="btn btn-secondary">List All</button>
+      </div>
+      <div id="agent-list" class="agent-list"></div>
+    </section>
+
+    <!-- Task Panel -->
+    <section id="task-panel" class="panel">
+      <h2>📤 Send Task</h2>
+      <div class="task-form">
+        <div class="form-row">
+          <label for="agent-select">Agent:</label>
+          <select id="agent-select">
+            <option value="">-- Select agent first --</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="task-skill">Skill:</label>
+          <input type="text" id="task-skill" placeholder="e.g. summary" />
+        </div>
+        <div class="form-row">
+          <label for="task-payload">Payload (text/query):</label>
+          <textarea id="task-payload" rows="4" placeholder="Enter text or query for the agent..."></textarea>
+        </div>
+        <div class="form-row">
+          <label for="translation-lang">Target Language (translation only):</label>
+          <select id="translation-lang">
+            <option value="en">English</option>
+            <option value="pt">Portuguese</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>
+            <input type="checkbox" id="chk-simulate-402" checked />
+            Simulate 402 first (send without token)
+          </label>
+        </div>
+        <div class="form-row token-row" id="token-row">
+          <label for="token-select">Token:</label>
+          <select id="token-select">
+            <option value="fake-token-123">fake-token-123 (valid)</option>
+            <option value="demo-token-456">demo-token-456 (valid)</option>
+            <option value="test-token-789">test-token-789 (valid)</option>
+            <option value="bad-token-000">bad-token-000 (invalid)</option>
+          </select>
+        </div>
+        <button id="btn-send-task" class="btn btn-primary">Send Task</button>
+      </div>
+      <div id="task-result" class="result-box"></div>
+    </section>
+
+    <!-- Logs -->
+    <section id="logs-panel" class="panel">
+      <h2>📋 Transaction Log</h2>
+      <div class="log-controls">
+        <button id="btn-clear-logs" class="btn btn-sm btn-secondary">Clear Log</button>
+      </div>
+      <div id="transaction-log" class="log-list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Mini Agent Economy — Protótipo acadêmico A2A</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
