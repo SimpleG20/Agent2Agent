@@ -1,0 +1,9 @@
+venv/
+go/
+data*/
+*.log
+*.db
+key-guard/key-guard-bin
+__pycache__/
+.idea/
+.vscode/

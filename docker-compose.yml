@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  redis-alfa:
+    image: redis:7-alpine
+    container_name: redis-alfa
+    ports:
+      - "6379:6379"
+    networks:
+      - a2a-network
+
+  redis-beta:
+    image: redis:7-alpine
+    container_name: redis-beta
+    ports:
+      - "6380:6379"
+    networks:
+      - a2a-network
+
+networks:
+  a2a-network:
+    driver: bridge
