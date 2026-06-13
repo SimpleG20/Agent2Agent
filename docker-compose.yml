@@ -1,0 +1,61 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - a2a-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  key-guard:
+    build:
+      context: ./key-guard
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - KEY_GUARD_PORT=3000
+      - KEY_GUARD_SEED=${KEY_GUARD_SEED:-}
+    networks:
+      - a2a-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  sanity-monitor:
+    build:
+      context: ./tools/sanity-monitor
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - AGENT_LOG_PATH=/var/log/agent
+    volumes:
+      - ./logs:/var/log/agent
+    networks:
+      - a2a-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./agent2agent-ui
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_KEY_GUARD_URL=http://key-guard:3000
+    networks:
+      - a2a-net
+    depends_on:
+      - key-guard
+    restart: unless-stopped
+
+networks:
+  a2a-net:
+    driver: bridge
