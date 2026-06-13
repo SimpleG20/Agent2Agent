@@ -1,0 +1,36 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 2s
+      retries: 10
+    networks:
+      - a2a-e2e
+
+  key-guard:
+    build:
+      context: ../../key-guard
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - KEY_GUARD_PORT=3000
+      - KEY_GUARD_SEED=${KEY_GUARD_SEED:-abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/v1/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    networks:
+      - a2a-e2e
+
+networks:
+  a2a-e2e:
+    driver: bridge
