@@ -3,34 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel A2A — Protocolo Seguro P2P</title>
-    <!-- Google Fonts: Outfit and Fira Code -->
+    <title>Painel A2A - Operacao segura entre agentes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: hsl(225, 25%, 8%);
-            --bg-card: hsla(223, 20%, 14%, 0.6);
-            --bg-card-hover: hsla(223, 20%, 18%, 0.8);
-            --text-main: hsl(210, 20%, 95%);
-            --text-muted: hsl(215, 12%, 60%);
-            
-            --accent-alfa: hsl(180, 80%, 50%);
-            --accent-alfa-glow: hsla(180, 80%, 50%, 0.15);
-            --accent-beta: hsl(270, 80%, 65%);
-            --accent-beta-glow: hsla(270, 80%, 65%, 0.15);
-            
-            --success: hsl(145, 65%, 45%);
-            --error: hsl(355, 75%, 50%);
-            --warning: hsl(45, 80%, 50%);
-            
-            --border: hsla(217, 15%, 25%, 0.4);
-            --border-glow-alfa: hsla(180, 80%, 50%, 0.3);
-            --border-glow-beta: hsla(270, 80%, 65%, 0.3);
-            
-            --font-outfit: 'Outfit', sans-serif;
-            --font-code: 'Fira Code', monospace;
+            --bg: #f3f6fb;
+            --surface: #ffffff;
+            --surface-subtle: #f8fafc;
+            --surface-strong: #eef2f7;
+            --text: #142033;
+            --muted: #66758a;
+            --border: #d9e1ec;
+            --border-strong: #c5d0df;
+            --shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+            --primary: #1f5eff;
+            --primary-soft: rgba(31, 94, 255, 0.1);
+            --alfa: #2563eb;
+            --beta: #7c3aed;
+            --success: #198754;
+            --success-soft: rgba(25, 135, 84, 0.12);
+            --error: #d64545;
+            --error-soft: rgba(214, 69, 69, 0.12);
+            --warning: #b7791f;
+            --warning-soft: rgba(183, 121, 31, 0.14);
+            --font-sans: "Inter", sans-serif;
+            --font-mono: "JetBrains Mono", monospace;
+            --header-gradient: linear-gradient(180deg, rgba(31, 94, 255, 0.04), transparent 220px);
+            --toast-bg: rgba(20, 32, 51, 0.95);
+            --toast-text: #ffffff;
+            --attack-surface: #fff9f7;
+            --attack-border: #f0d3cd;
+            --attack-text: #9a3412;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --surface: #111c31;
+            --surface-subtle: #16233d;
+            --surface-strong: #1b2a46;
+            --text: #e5edf8;
+            --muted: #97a6bb;
+            --border: #25344d;
+            --border-strong: #334766;
+            --shadow: 0 18px 44px rgba(2, 6, 23, 0.35);
+            --primary: #7aa2ff;
+            --primary-soft: rgba(122, 162, 255, 0.16);
+            --alfa: #63a2ff;
+            --beta: #9b7dff;
+            --success: #3ecf8e;
+            --success-soft: rgba(62, 207, 142, 0.14);
+            --error: #ff7a7a;
+            --error-soft: rgba(255, 122, 122, 0.16);
+            --warning: #f1b24a;
+            --warning-soft: rgba(241, 178, 74, 0.16);
+            --header-gradient: linear-gradient(180deg, rgba(122, 162, 255, 0.08), transparent 220px);
+            --toast-bg: rgba(10, 16, 29, 0.96);
+            --toast-text: #f8fbff;
+            --attack-surface: #231717;
+            --attack-border: #553333;
+            --attack-text: #ffb4a8;
         }
 
         * {
@@ -40,442 +73,538 @@
         }
 
         body {
-            background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(at 10% 10%, hsla(180, 80%, 50%, 0.05) 0px, transparent 50%),
-                radial-gradient(at 90% 90%, hsla(270, 80%, 65%, 0.05) 0px, transparent 50%);
-            color: var(--text-main);
-            font-family: var(--font-outfit);
             min-height: 100vh;
-            padding: 2rem;
+            background: var(--header-gradient), var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            padding: 32px;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .app-shell {
+            max-width: 1440px;
+            margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 2rem;
-            overflow-x: hidden;
+            gap: 24px;
         }
 
-        header {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
+        .page-header {
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem 2rem;
+            border-radius: 24px;
+            padding: 28px 32px;
+            box-shadow: var(--shadow);
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            align-items: flex-start;
+            gap: 24px;
         }
 
-        .header-title h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-alfa), var(--accent-beta));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.25rem;
-        }
-
-        .header-title p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        .header-info {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-        }
-
-        .contract-badge {
-            background: hsla(223, 20%, 10%, 0.8);
-            border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-family: var(--font-code);
-            font-size: 0.85rem;
-            color: var(--accent-alfa);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn {
-            font-family: var(--font-outfit);
-            font-weight: 600;
-            font-size: 0.9rem;
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .eyebrow {
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
         }
 
-        .btn-reset {
-            background: hsla(355, 75%, 50%, 0.15);
-            color: var(--error);
-            border: 1px solid hsla(355, 75%, 50%, 0.3);
+        .page-header h1 {
+            font-size: 32px;
+            line-height: 1.1;
+            margin-bottom: 10px;
         }
 
-        .btn-reset:hover {
-            background: var(--error);
-            color: white;
-            box-shadow: 0 0 15px hsla(355, 75%, 50%, 0.5);
+        .page-header p {
+            max-width: 720px;
+            color: var(--muted);
+            line-height: 1.6;
         }
 
-        .btn-primary-alfa {
-            background: var(--accent-alfa);
-            color: hsl(225, 25%, 8%);
-        }
-        .btn-primary-alfa:hover {
-            box-shadow: 0 0 15px var(--accent-alfa);
-            transform: translateY(-2px);
-        }
-
-        .btn-primary-beta {
-            background: var(--accent-beta);
-            color: white;
-        }
-        .btn-primary-beta:hover {
-            box-shadow: 0 0 15px var(--accent-beta);
-            transform: translateY(-2px);
+        .header-actions {
+            min-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
         }
 
-        .btn-secondary {
-            background: hsla(217, 15%, 25%, 0.5);
-            color: var(--text-main);
+        .mode-badge,
+        .summary-card {
+            background: var(--surface-subtle);
             border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 14px 16px;
         }
-        .btn-secondary:hover {
-            background: hsla(217, 15%, 35%, 0.8);
-            transform: translateY(-2px);
+
+        .mode-badge-label,
+        .summary-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .mode-badge-value,
+        .summary-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .header-button-row,
+        .section-actions,
+        .button-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .overview-grid,
+        .main-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .overview-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        @media (max-width: 1024px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
+        .overview-card,
+        .agent-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .overview-card {
+            border-radius: 20px;
+            padding: 20px;
+        }
+
+        .overview-card h2 {
+            font-size: 14px;
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .overview-metric {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .overview-copy {
+            color: var(--muted);
+            line-height: 1.5;
+            font-size: 14px;
         }
 
         .agent-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border-radius: 20px;
-            padding: 2rem;
+            border-radius: 24px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            transition: all 0.3s ease;
-            position: relative;
+            gap: 22px;
         }
 
         .agent-card.alfa {
-            border: 1px solid var(--border);
-        }
-        .agent-card.alfa:hover {
-            border-color: var(--border-glow-alfa);
-            box-shadow: 0 8px 32px 0 var(--accent-alfa-glow);
+            border-top: 4px solid var(--alfa);
         }
 
         .agent-card.beta {
-            border: 1px solid var(--border);
-        }
-        .agent-card.beta:hover {
-            border-color: var(--border-glow-beta);
-            box-shadow: 0 8px 32px 0 var(--accent-beta-glow);
+            border-top: 4px solid var(--beta);
         }
 
         .agent-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            gap: 16px;
+            padding-bottom: 18px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 1rem;
         }
 
-        .agent-title-area {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+        .agent-kicker {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
 
         .agent-name {
-            font-size: 1.5rem;
+            font-size: 28px;
             font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+            margin-bottom: 6px;
         }
 
-        .agent-card.alfa .agent-name { color: var(--accent-alfa); }
-        .agent-card.beta .agent-name { color: var(--accent-beta); }
+        .agent-card.alfa .agent-name {
+            color: var(--alfa);
+        }
+
+        .agent-card.beta .agent-name {
+            color: var(--beta);
+        }
 
         .agent-did {
-            font-family: var(--font-code);
-            font-size: 0.8rem;
-            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--muted);
         }
 
         .status-pill {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.3rem 0.75rem;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: hsla(223, 20%, 10%, 0.6);
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: var(--surface-subtle);
             border: 1px solid var(--border);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
+            background: var(--muted);
         }
 
         .status-dot.active {
-            background-color: var(--success);
-            box-shadow: 0 0 8px var(--success);
-        }
-        .status-dot.inactive {
-            background-color: var(--error);
-            box-shadow: 0 0 8px var(--error);
+            background: var(--success);
+            box-shadow: 0 0 0 6px rgba(25, 135, 84, 0.14);
         }
 
-        .section-title {
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
+        .status-dot.inactive {
+            background: var(--error);
+            box-shadow: 0 0 0 6px rgba(214, 69, 69, 0.14);
+        }
+
+        .section {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .section-head {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .section-description {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .subtle-panel,
+        .info-grid,
+        .blacklist-box,
+        .logs-box,
+        .attack-box {
+            background: var(--surface-subtle);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+        }
+
+        .subtle-panel {
+            padding: 16px;
         }
 
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-            background: hsla(223, 20%, 10%, 0.4);
-            padding: 1rem;
-            border-radius: 12px;
-            border: 1px solid var(--border);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+            padding: 16px;
         }
 
         .info-row {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 6px;
+            min-width: 0;
         }
 
         .info-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
         }
 
         .info-value {
-            font-family: var(--font-code);
-            font-size: 0.85rem;
-            word-break: break-all;
-        }
-
-        .setup-actions {
-            display: flex;
-            gap: 1rem;
-            background: hsla(223, 20%, 6%, 0.4);
-            border: 1px dashed var(--border);
-            padding: 1rem;
-            border-radius: 12px;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .setup-text {
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text);
+            word-break: break-word;
         }
 
         .blacklist-area {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .box-head {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .blacklist-box,
+        .logs-box {
+            padding: 14px;
+            min-height: 132px;
         }
 
         .blacklist-box {
-            background: hsla(223, 20%, 10%, 0.4);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
-            max-height: 120px;
+            max-height: 160px;
             overflow-y: auto;
         }
 
+        .blacklist-item,
+        .log-entry {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .blacklist-item:last-child,
+        .log-entry:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
         .blacklist-item {
-            font-family: var(--font-code);
-            font-size: 0.75rem;
-            color: var(--error);
-            margin-bottom: 0.25rem;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 4px;
+            color: var(--error);
+            font-family: var(--font-mono);
+            font-size: 12px;
         }
 
         .blacklist-empty {
-            font-size: 0.8rem;
-            color: var(--success);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 90px;
+            color: var(--muted);
+            font-size: 14px;
             text-align: center;
-            padding: 0.5rem;
-        }
-
-        .peer-box {
-            font-family: var(--font-code);
-            font-size: 0.75rem;
-            color: var(--text-main);
-            margin-bottom: 0.35rem;
-            padding-bottom: 0.35rem;
-            border-bottom: 1px solid hsla(217, 15%, 20%, 0.4);
-            display: flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .form-control {
-            background: hsla(223, 20%, 8%, 0.8);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 0.6rem 0.8rem;
-            border-radius: 8px;
-            font-family: var(--font-outfit);
-            font-size: 0.9rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--text-muted);
         }
 
         .form-row {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 1rem;
+            gap: 12px;
         }
 
-        .action-area {
+        .form-group {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            border-top: 1px solid var(--border);
-            padding-top: 1.5rem;
+            gap: 8px;
         }
 
-        .logs-box {
-            background: hsla(223, 20%, 6%, 0.9);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
-            font-family: var(--font-code);
-            font-size: 0.8rem;
-            height: 180px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .log-entry {
-            border-bottom: 1px solid hsla(217, 15%, 20%, 0.4);
-            padding-bottom: 0.4rem;
-        }
-
-        .log-time {
-            color: var(--text-muted);
-            margin-right: 0.5rem;
-        }
-
-        .log-status {
+        .form-label {
+            font-size: 13px;
             font-weight: 600;
-            padding: 0.05rem 0.25rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            margin-right: 0.5rem;
+            color: var(--muted);
         }
 
-        .log-status.sent { background: hsla(180, 80%, 50%, 0.15); color: var(--accent-alfa); }
-        .log-status.received { background: hsla(145, 65%, 45%, 0.15); color: var(--success); }
-        .log-status.failed { background: hsla(355, 75%, 50%, 0.15); color: var(--error); }
+        .form-control {
+            width: 100%;
+            border: 1px solid var(--border-strong);
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 13px 14px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: var(--font-sans);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
 
-        .log-body {
-            color: var(--text-main);
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(31, 94, 255, 0.12);
+        }
+
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-theme {
+            background: var(--surface);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+
+        .btn-primary-alfa,
+        .btn-primary-beta {
+            color: #ffffff;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .btn-primary-alfa {
+            background: var(--alfa);
+        }
+
+        .btn-primary-beta {
+            background: var(--beta);
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
+
+        .btn-reset {
+            background: #ffffff;
+            color: var(--error);
+            border-color: rgba(214, 69, 69, 0.28);
         }
 
         .attack-box {
-            border: 1px dashed var(--error);
-            background: hsla(355, 75%, 50%, 0.03);
-            border-radius: 12px;
-            padding: 1rem;
+            padding: 16px;
+            background: var(--attack-surface);
+            border-color: var(--attack-border);
+            gap: 14px;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
         }
 
         .attack-box-title {
-            font-size: 0.85rem;
+            font-size: 14px;
             font-weight: 700;
-            color: var(--error);
-            display: flex;
+            color: var(--attack-text);
+        }
+
+        .attack-box-copy {
+            color: var(--attack-text);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .logs-box {
+            height: 240px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .log-time {
+            color: var(--muted);
+            font-family: var(--font-mono);
+            margin-right: 8px;
+        }
+
+        .log-status {
+            display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            text-transform: uppercase;
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-right: 8px;
+        }
+
+        .log-status.sent {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+
+        .log-status.received {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .log-status.failed {
+            background: var(--error-soft);
+            color: var(--error);
+        }
+
+        .log-body {
+            color: var(--text);
         }
 
         .toast-container {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
+            right: 24px;
+            bottom: 24px;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 12px;
             z-index: 1000;
         }
 
         .toast {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            border-radius: 8px;
-            padding: 1rem 1.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transform: translateY(100px);
+            min-width: 280px;
+            max-width: 360px;
+            background: var(--toast-bg);
+            color: var(--toast-text);
+            border-radius: 16px;
+            padding: 14px 16px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24);
+            transform: translateY(16px);
             opacity: 0;
-            animation: slideIn 0.3s forwards;
-            border-left: 4px solid var(--text-muted);
+            animation: slideIn 0.24s forwards;
         }
 
-        .toast.success { border-left-color: var(--success); color: var(--success); }
-        .toast.error { border-left-color: var(--error); color: var(--error); }
-        .toast.warning { border-left-color: var(--warning); color: var(--warning); }
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--error);
+        }
+
+        .toast.warning {
+            border-left: 4px solid #f59e0b;
+        }
 
         @keyframes slideIn {
             to {
@@ -483,251 +612,445 @@
                 opacity: 1;
             }
         }
+
+        @media (max-width: 1180px) {
+            .page-header,
+            .main-grid,
+            .overview-grid,
+            .blacklist-area {
+                grid-template-columns: 1fr;
+            }
+
+            .page-header {
+                flex-direction: column;
+            }
+
+            .header-actions {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 18px;
+            }
+
+            .page-header,
+            .agent-card,
+            .overview-card {
+                padding: 18px;
+            }
+
+            .info-grid,
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .section-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
-
-    <header>
-        <div class="header-title">
-            <h1>A2A — Protocolo de Comunicação Segura P2P</h1>
-            <p>Handshake de Identidade Soberana & Escudo de Criptografia Key Guard</p>
-        </div>
-        <div class="header-info">
-            <div class="contract-badge" title="Modo de Operação">
-                ⚙️ Modo: <span id="contract-addr-text">Modo Handshake P2P Puro</span>
-            </div>
-            <button class="btn btn-reset" onclick="resetSystem()">🔄 Limpar Caches & Reiniciar</button>
-        </div>
-    </header>
-
-    <main class="main-grid">
-        <!-- AGENT ALFA CARD -->
-        <div class="agent-card alfa" id="agent-alfa-card">
-            <div class="agent-header">
-                <div class="agent-title-area">
-                    <div class="agent-name">
-                        🤖 Agente Alfa
-                    </div>
-                    <div class="agent-did">did:custom:alfa</div>
-                </div>
-                <div class="status-pill">
-                    <div class="status-dot" id="alfa-status-dot"></div>
-                    <span id="alfa-status-text">Verificando...</span>
-                </div>
-            </div>
-
-            <!-- Connection/Handshake Setup -->
-            <div class="setup-actions">
-                <div class="setup-text">
-                    <strong>Link P2P:</strong> Iniciar handshake direto com o Agente Beta
-                </div>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('alfa', 'http://localhost:8002')">🤝 Handshake Direto</button>
-            </div>
-
-            <!-- Local peer details -->
+    <div class="app-shell">
+        <header class="page-header">
             <div>
-                <div class="section-title">📡 Catálogo de Pares (Resolução Local)</div>
-                <div class="info-grid">
-                    <div class="info-row">
-                        <span class="info-label">DID do parceiro:</span>
-                        <span class="info-value" id="alfa-resolved-did">Nenhum (Handshake necessário)</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Chave pública do parceiro:</span>
-                        <span class="info-value" id="alfa-resolved-pubkey">...</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Endpoint do parceiro:</span>
-                        <span class="info-value" id="alfa-resolved-endpoint">...</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Estado da conexão:</span>
-                        <span class="info-value" id="alfa-resolved-revoked">...</span>
-                    </div>
-                </div>
+                <div class="eyebrow">Painel operacional A2A</div>
+                <h1>Comunicacao segura entre agentes</h1>
+                <p>
+                    Uma visao mais limpa para acompanhar handshake, confianca entre pares,
+                    envio de mensagens e sinais de seguranca em um unico lugar.
+                </p>
             </div>
 
-            <!-- Blacklist States -->
-            <div>
-                <div class="section-title">🚫 Caches de Blacklist</div>
-                <div class="blacklist-area">
+            <div class="header-actions">
+                <div class="mode-badge">
+                    <span class="mode-badge-label">Modo atual</span>
+                    <span class="mode-badge-value" id="contract-addr-text">Handshake P2P puro</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-label">Resumo rapido</span>
+                    <span class="summary-value" id="summary-status">Carregando status dos agentes</span>
+                </div>
+                <div class="header-button-row">
+                    <button class="btn btn-theme" id="theme-toggle" type="button" onclick="toggleTheme()">Ativar tema escuro</button>
+                    <button class="btn btn-reset" onclick="resetSystem()">Limpar caches e reiniciar</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="overview-grid">
+            <div class="overview-card">
+                <h2>Agentes online</h2>
+                <div class="overview-metric" id="online-count">0/2</div>
+                <div class="overview-copy">Mostra quantos Key Guards estao ativos e respondendo no momento.</div>
+            </div>
+            <div class="overview-card">
+                <h2>Pares bloqueados</h2>
+                <div class="overview-metric" id="blocked-count">0</div>
+                <div class="overview-copy">Soma dos bloqueios registrados nas camadas cognitiva e Key Guard.</div>
+            </div>
+            <div class="overview-card">
+                <h2>Eventos recentes</h2>
+                <div class="overview-metric" id="events-count">0</div>
+                <div class="overview-copy">Total de transacoes exibidas nos dois paineis de atividade.</div>
+            </div>
+        </section>
+
+        <main class="main-grid">
+            <section class="agent-card alfa" id="agent-alfa-card">
+                <div class="agent-header">
                     <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitivo (Python)</div>
-                        <div class="blacklist-box" id="alfa-cog-blacklist">
-                            <div class="blacklist-empty">Carregando...</div>
+                        <div class="agent-kicker">Origem local</div>
+                        <div class="agent-name">Agente Alfa</div>
+                        <div class="agent-did">did:custom:alfa</div>
+                    </div>
+                    <div class="status-pill">
+                        <div class="status-dot" id="alfa-status-dot"></div>
+                        <span id="alfa-status-text">Verificando</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-head">
+                        <div>
+                            <div class="section-title">Conexao inicial</div>
+                            <div class="section-description">Estabelece relacao direta com o Agente Beta.</div>
                         </div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Key Guard (Go)</div>
-                        <div class="blacklist-box" id="alfa-kg-blacklist">
-                            <div class="blacklist-empty">Carregando...</div>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="triggerHandshake('alfa', 'http://localhost:8002')">Iniciar handshake</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Message Action -->
-            <div class="action-area">
-                <div class="section-title">✉️ Enviar Mensagem P2P Segura</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <input type="text" id="alfa-to-msg" class="form-control" placeholder="Conteúdo da mensagem...">
+                <div class="section">
+                    <div>
+                        <div class="section-title">Resolucao local do parceiro</div>
+                        <div class="section-description">Dados recebidos do catalogo local apos o handshake.</div>
                     </div>
-                    <div class="form-group">
-                        <input type="number" id="alfa-to-amount" class="form-control" placeholder="Valor (ex: 50)">
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">DID do parceiro</span>
+                            <span class="info-value" id="alfa-resolved-did">Nenhum handshake realizado</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Estado da conexao</span>
+                            <span class="info-value" id="alfa-resolved-revoked">Aguardando conexao</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Chave publica</span>
+                            <span class="info-value" id="alfa-resolved-pubkey">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Endpoint</span>
+                            <span class="info-value" id="alfa-resolved-endpoint">-</span>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-primary-alfa" onclick="sendMessage('alfa', 'did:custom:beta')">🔒 Assinar & Transmitir para Beta</button>
-            </div>
 
-            <!-- Anomaly Attacks -->
-            <div class="attack-box">
-                <div class="attack-box-title">⚡ Painel de Simulação de Ataques</div>
-                <div class="form-row">
-                    <div class="form-group" style="grid-column: span 2;">
+                <div class="section">
+                    <div>
+                        <div class="section-title">Listas de bloqueio</div>
+                        <div class="section-description">Visao separada por camada para facilitar diagnostico.</div>
+                    </div>
+                    <div class="blacklist-area">
+                        <div class="subtle-panel">
+                            <div class="box-head">Camada cognitiva</div>
+                            <div class="blacklist-box" id="alfa-cog-blacklist">
+                                <div class="blacklist-empty">Carregando dados</div>
+                            </div>
+                        </div>
+                        <div class="subtle-panel">
+                            <div class="box-head">Key Guard</div>
+                            <div class="blacklist-box" id="alfa-kg-blacklist">
+                                <div class="blacklist-empty">Carregando dados</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div>
+                        <div class="section-title">Enviar mensagem segura</div>
+                        <div class="section-description">Assina e transmite uma mensagem do Alfa para o Beta.</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="alfa-to-msg">Mensagem</label>
+                            <input type="text" id="alfa-to-msg" class="form-control" placeholder="Digite o conteudo da mensagem">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="alfa-to-amount">Valor</label>
+                            <input type="number" id="alfa-to-amount" class="form-control" placeholder="Ex.: 50">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-primary-alfa" onclick="sendMessage('alfa', 'did:custom:beta')">Enviar para Beta</button>
+                    </div>
+                </div>
+
+                <div class="attack-box">
+                    <div class="attack-box-title">Testes de seguranca</div>
+                    <div class="attack-box-copy">Simula situacoes de risco para validar as regras de protecao antes de colocar o fluxo em producao.</div>
+                    <div class="form-group">
+                        <label class="form-label" for="alfa-attack-type">Cenario</label>
                         <select id="alfa-attack-type" class="form-control">
-                            <option value="rules_amount">Exceder Limite de Gasto (Valor = 150)</option>
-                            <option value="security_leak">Tentativa de Vazar Chave ("reveal private_key")</option>
-                            <option value="prompt_injection">Injeção de Prompt ("ignore previous instructions")</option>
+                            <option value="rules_amount">Exceder limite de gasto (valor 150)</option>
+                            <option value="security_leak">Solicitar vazamento de chave privada</option>
+                            <option value="prompt_injection">Tentar contornar instrucoes de seguranca</option>
                         </select>
                     </div>
-                </div>
-                <button class="btn btn-reset" onclick="simulateAttack('alfa')">💥 Injetar Ataque Anômalo</button>
-            </div>
-
-            <!-- Inbox Logs -->
-            <div>
-                <div class="section-title">
-                    📰 Caixa de Entrada & Transações
-                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-alfa); color: black;" onclick="pollInbox('alfa')">📥 Verificar Caixa de Entrada</button>
-                </div>
-                <div class="logs-box" id="alfa-logs">
-                    <div class="blacklist-empty">Nenhuma transação registrada ainda</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- AGENT BETA CARD -->
-        <div class="agent-card beta" id="agent-beta-card">
-            <div class="agent-header">
-                <div class="agent-title-area">
-                    <div class="agent-name">
-                        🤖 Agente Beta
-                    </div>
-                    <div class="agent-did">did:custom:beta</div>
-                </div>
-                <div class="status-pill">
-                    <div class="status-dot" id="beta-status-dot"></div>
-                    <span id="beta-status-text">Verificando...</span>
-                </div>
-            </div>
-
-            <!-- Connection/Handshake Setup -->
-            <div class="setup-actions">
-                <div class="setup-text">
-                    <strong>Link P2P:</strong> Iniciar handshake direto com o Agente Alfa
-                </div>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('beta', 'http://localhost:8001')">🤝 Handshake Direto</button>
-            </div>
-
-            <!-- Local peer details -->
-            <div>
-                <div class="section-title">📡 Catálogo de Pares (Resolução Local)</div>
-                <div class="info-grid">
-                    <div class="info-row">
-                        <span class="info-label">DID do parceiro:</span>
-                        <span class="info-value" id="beta-resolved-did">Nenhum (Handshake necessário)</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Chave pública do parceiro:</span>
-                        <span class="info-value" id="beta-resolved-pubkey">...</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Endpoint do parceiro:</span>
-                        <span class="info-value" id="beta-resolved-endpoint">...</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Estado da conexão:</span>
-                        <span class="info-value" id="beta-resolved-revoked">...</span>
+                    <div class="button-row">
+                        <button class="btn btn-reset" onclick="simulateAttack('alfa')">Executar teste</button>
                     </div>
                 </div>
-            </div>
 
-            <!-- Blacklist States -->
-            <div>
-                <div class="section-title">🚫 Caches de Blacklist</div>
-                <div class="blacklist-area">
-                    <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitivo (Python)</div>
-                        <div class="blacklist-box" id="beta-cog-blacklist">
-                            <div class="blacklist-empty">Carregando...</div>
+                <div class="section">
+                    <div class="section-head">
+                        <div>
+                            <div class="section-title">Atividade e caixa de entrada</div>
+                            <div class="section-description">Historico de recebimento e envio mais recente.</div>
+                        </div>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="pollInbox('alfa')">Atualizar caixa de entrada</button>
                         </div>
                     </div>
+                    <div class="logs-box" id="alfa-logs">
+                        <div class="blacklist-empty">Nenhum evento registrado</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="agent-card beta" id="agent-beta-card">
+                <div class="agent-header">
                     <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Key Guard (Go)</div>
-                        <div class="blacklist-box" id="beta-kg-blacklist">
-                            <div class="blacklist-empty">Carregando...</div>
+                        <div class="agent-kicker">Destino local</div>
+                        <div class="agent-name">Agente Beta</div>
+                        <div class="agent-did">did:custom:beta</div>
+                    </div>
+                    <div class="status-pill">
+                        <div class="status-dot" id="beta-status-dot"></div>
+                        <span id="beta-status-text">Verificando</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-head">
+                        <div>
+                            <div class="section-title">Conexao inicial</div>
+                            <div class="section-description">Estabelece relacao direta com o Agente Alfa.</div>
+                        </div>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="triggerHandshake('beta', 'http://localhost:8001')">Iniciar handshake</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Message Action -->
-            <div class="action-area">
-                <div class="section-title">✉️ Enviar Mensagem P2P Segura</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <input type="text" id="beta-to-msg" class="form-control" placeholder="Conteúdo da mensagem...">
+                <div class="section">
+                    <div>
+                        <div class="section-title">Resolucao local do parceiro</div>
+                        <div class="section-description">Dados recebidos do catalogo local apos o handshake.</div>
                     </div>
-                    <div class="form-group">
-                        <input type="number" id="beta-to-amount" class="form-control" placeholder="Valor (ex: 50)">
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">DID do parceiro</span>
+                            <span class="info-value" id="beta-resolved-did">Nenhum handshake realizado</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Estado da conexao</span>
+                            <span class="info-value" id="beta-resolved-revoked">Aguardando conexao</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Chave publica</span>
+                            <span class="info-value" id="beta-resolved-pubkey">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Endpoint</span>
+                            <span class="info-value" id="beta-resolved-endpoint">-</span>
+                        </div>
                     </div>
                 </div>
-                <button class="btn btn-primary-beta" onclick="sendMessage('beta', 'did:custom:alfa')">🔒 Assinar & Transmitir para Alfa</button>
-            </div>
 
-            <!-- Anomaly Attacks -->
-            <div class="attack-box">
-                <div class="attack-box-title">⚡ Painel de Simulação de Ataques</div>
-                <div class="form-row">
-                    <div class="form-group" style="grid-column: span 2;">
+                <div class="section">
+                    <div>
+                        <div class="section-title">Listas de bloqueio</div>
+                        <div class="section-description">Visao separada por camada para facilitar diagnostico.</div>
+                    </div>
+                    <div class="blacklist-area">
+                        <div class="subtle-panel">
+                            <div class="box-head">Camada cognitiva</div>
+                            <div class="blacklist-box" id="beta-cog-blacklist">
+                                <div class="blacklist-empty">Carregando dados</div>
+                            </div>
+                        </div>
+                        <div class="subtle-panel">
+                            <div class="box-head">Key Guard</div>
+                            <div class="blacklist-box" id="beta-kg-blacklist">
+                                <div class="blacklist-empty">Carregando dados</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div>
+                        <div class="section-title">Enviar mensagem segura</div>
+                        <div class="section-description">Assina e transmite uma mensagem do Beta para o Alfa.</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="beta-to-msg">Mensagem</label>
+                            <input type="text" id="beta-to-msg" class="form-control" placeholder="Digite o conteudo da mensagem">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="beta-to-amount">Valor</label>
+                            <input type="number" id="beta-to-amount" class="form-control" placeholder="Ex.: 50">
+                        </div>
+                    </div>
+                    <div class="button-row">
+                        <button class="btn btn-primary-beta" onclick="sendMessage('beta', 'did:custom:alfa')">Enviar para Alfa</button>
+                    </div>
+                </div>
+
+                <div class="attack-box">
+                    <div class="attack-box-title">Testes de seguranca</div>
+                    <div class="attack-box-copy">Executa cenarios de abuso conhecidos para confirmar o bloqueio automatico entre as camadas de defesa.</div>
+                    <div class="form-group">
+                        <label class="form-label" for="beta-attack-type">Cenario</label>
                         <select id="beta-attack-type" class="form-control">
-                            <option value="rules_amount">Exceder Limite de Gasto (Valor = 150)</option>
-                            <option value="security_leak">Tentativa de Vazar Chave ("reveal private_key")</option>
-                            <option value="prompt_injection">Injeção de Prompt ("ignore previous instructions")</option>
+                            <option value="rules_amount">Exceder limite de gasto (valor 150)</option>
+                            <option value="security_leak">Solicitar vazamento de chave privada</option>
+                            <option value="prompt_injection">Tentar contornar instrucoes de seguranca</option>
                         </select>
                     </div>
+                    <div class="button-row">
+                        <button class="btn btn-reset" onclick="simulateAttack('beta')">Executar teste</button>
+                    </div>
                 </div>
-                <button class="btn btn-reset" onclick="simulateAttack('beta')">💥 Injetar Ataque Anômalo</button>
-            </div>
 
-            <!-- Inbox Logs -->
-            <div>
-                <div class="section-title">
-                    📰 Caixa de Entrada & Transações
-                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-beta); color: white;" onclick="pollInbox('beta')">📥 Verificar Caixa de Entrada</button>
+                <div class="section">
+                    <div class="section-head">
+                        <div>
+                            <div class="section-title">Atividade e caixa de entrada</div>
+                            <div class="section-description">Historico de recebimento e envio mais recente.</div>
+                        </div>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="pollInbox('beta')">Atualizar caixa de entrada</button>
+                        </div>
+                    </div>
+                    <div class="logs-box" id="beta-logs">
+                        <div class="blacklist-empty">Nenhum evento registrado</div>
+                    </div>
                 </div>
-                <div class="logs-box" id="beta-logs">
-                    <div class="blacklist-empty">Nenhuma transação registrada ainda</div>
-                </div>
-            </div>
-        </div>
-    </main>
+            </section>
+        </main>
+    </div>
 
     <div class="toast-container" id="toast-container"></div>
 
     <script>
+        const THEME_STORAGE_KEY = "a2a-dashboard-theme";
+
+        function getPreferredTheme() {
+            const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+            if (savedTheme === "light" || savedTheme === "dark") {
+                return savedTheme;
+            }
+            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+
+        function updateThemeToggle(theme) {
+            const toggle = document.getElementById("theme-toggle");
+            if (!toggle) {
+                return;
+            }
+            toggle.innerText = theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro";
+        }
+
+        function applyTheme(theme) {
+            document.body.setAttribute("data-theme", theme);
+            localStorage.setItem(THEME_STORAGE_KEY, theme);
+            updateThemeToggle(theme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute("data-theme") || "light";
+            applyTheme(currentTheme === "dark" ? "light" : "dark");
+        }
+
         function showToast(message, type = "success") {
             const container = document.getElementById("toast-container");
             const toast = document.createElement("div");
             toast.className = `toast ${type}`;
             toast.innerText = message;
             container.appendChild(toast);
-            
+
             setTimeout(() => {
-                toast.style.animation = "slideIn 0.3s reverse forwards";
-                setTimeout(() => toast.remove(), 300);
+                toast.style.animation = "slideIn 0.24s reverse forwards";
+                setTimeout(() => toast.remove(), 240);
             }, 3500);
+        }
+
+        function setOverview(agents) {
+            const values = Object.values(agents);
+            const onlineCount = values.filter(agent => agent.key_guard_online).length;
+            const blockedCount = values.reduce((total, agent) => {
+                return total + agent.cognitive_blacklist.length + Object.keys(agent.key_guard_blacklist).length;
+            }, 0);
+            const eventsCount = values.reduce((total, agent) => total + agent.tx_history.length, 0);
+
+            document.getElementById("online-count").innerText = `${onlineCount}/2`;
+            document.getElementById("blocked-count").innerText = `${blockedCount}`;
+            document.getElementById("events-count").innerText = `${eventsCount}`;
+            document.getElementById("summary-status").innerText =
+                onlineCount === 2 ? "Os dois agentes estao online e respondendo." : "Ha agentes aguardando inicializacao.";
+        }
+
+        function renderBlacklist(container, items, emptyMessage, mapper) {
+            container.innerHTML = "";
+            if (items.length > 0) {
+                items.forEach(item => {
+                    const div = document.createElement("div");
+                    div.className = "blacklist-item";
+                    div.innerHTML = mapper(item);
+                    container.appendChild(div);
+                });
+            } else {
+                container.innerHTML = `<div class="blacklist-empty">${emptyMessage}</div>`;
+            }
+        }
+
+        function renderLogs(container, txHistory) {
+            container.innerHTML = "";
+            if (txHistory.length === 0) {
+                container.innerHTML = `<div class="blacklist-empty">Nenhum evento registrado</div>`;
+                return;
+            }
+
+            txHistory.forEach(tx => {
+                const timeStr = new Date(tx.timestamp * 1000).toLocaleTimeString();
+                const div = document.createElement("div");
+                div.className = "log-entry";
+
+                let statusClass = "failed";
+                let statusLabel = tx.status;
+
+                if (tx.status === "sent_success") {
+                    statusClass = "sent";
+                    statusLabel = "ENVIADO";
+                } else if (tx.status === "received") {
+                    statusClass = "received";
+                    statusLabel = "RECEBIDO";
+                } else {
+                    statusLabel = String(tx.status || "FALHA").toUpperCase();
+                }
+
+                div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-status ${statusClass}">${statusLabel}</span><span class="log-body">${tx.content} ${tx.amount ? `(${tx.amount} U)` : ""}</span>`;
+                container.appendChild(div);
+            });
         }
 
         async function updateStatus() {
@@ -736,13 +1059,13 @@
                 const data = await response.json();
 
                 document.getElementById("contract-addr-text").innerText = data.contract_address;
+                setOverview(data.agents);
 
                 for (const name of ["alfa", "beta"]) {
                     const agent = data.agents[name];
                     const dot = document.getElementById(`${name}-status-dot`);
                     const text = document.getElementById(`${name}-status-text`);
 
-                    // Port/Online status
                     if (agent.key_guard_online) {
                         dot.className = "status-dot active";
                         text.innerText = "Online";
@@ -751,80 +1074,46 @@
                         text.innerText = "Offline";
                     }
 
-                    // Local peer resolve status
-                    const r_did = document.getElementById(`${name}-resolved-did`);
-                    const r_pub = document.getElementById(`${name}-resolved-pubkey`);
-                    const r_end = document.getElementById(`${name}-resolved-endpoint`);
-                    const r_rev = document.getElementById(`${name}-resolved-revoked`);
-                    
+                    const resolvedDid = document.getElementById(`${name}-resolved-did`);
+                    const resolvedPub = document.getElementById(`${name}-resolved-pubkey`);
+                    const resolvedEndpoint = document.getElementById(`${name}-resolved-endpoint`);
+                    const resolvedState = document.getElementById(`${name}-resolved-revoked`);
+
                     if (agent.resolved_partner && !agent.resolved_partner.error) {
-                        r_did.innerText = agent.resolved_partner.did || "Nenhum";
-                        r_pub.innerText = agent.resolved_partner.public_key ? agent.resolved_partner.public_key.slice(0, 25) + "..." : "Nenhuma";
-                        r_end.innerText = agent.resolved_partner.endpoint || "Nenhum";
-                        r_rev.innerText = agent.resolved_partner.revoked ? "🔴 Par Revogado Localmente" : "🟢 Par Ativo e Verificado";
-                        r_rev.style.color = agent.resolved_partner.revoked ? "var(--error)" : "var(--success)";
+                        resolvedDid.innerText = agent.resolved_partner.did || "Nao informado";
+                        resolvedPub.innerText = agent.resolved_partner.public_key
+                            ? `${agent.resolved_partner.public_key.slice(0, 25)}...`
+                            : "Nao informado";
+                        resolvedEndpoint.innerText = agent.resolved_partner.endpoint || "Nao informado";
+                        resolvedState.innerText = agent.resolved_partner.revoked
+                            ? "Par revogado localmente"
+                            : "Par ativo e verificado";
+                        resolvedState.style.color = agent.resolved_partner.revoked ? "var(--error)" : "var(--success)";
                     } else {
-                        r_did.innerText = "Nenhum (Handshake necessário)";
-                        r_pub.innerText = "Nenhuma";
-                        r_end.innerText = "Nenhum";
-                        r_rev.innerText = "Desconectado";
-                        r_rev.style.color = "var(--text-muted)";
+                        resolvedDid.innerText = "Nenhum handshake realizado";
+                        resolvedPub.innerText = "-";
+                        resolvedEndpoint.innerText = "-";
+                        resolvedState.innerText = "Aguardando conexao";
+                        resolvedState.style.color = "var(--muted)";
                     }
 
-                    // Blacklist - Cognitive
-                    const cogBLBox = document.getElementById(`${name}-cog-blacklist`);
-                    cogBLBox.innerHTML = "";
-                    if (agent.cognitive_blacklist.length > 0) {
-                        agent.cognitive_blacklist.forEach(entry => {
-                            const div = document.createElement("div");
-                            div.className = "blacklist-item";
-                            div.innerHTML = `<span>Bloqueado: ${entry.did}</span> <span style="font-size:0.65rem; color:var(--text-muted)">Motivo: ${entry.reason}</span>`;
-                            cogBLBox.appendChild(div);
-                        });
-                    } else {
-                        cogBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
-                    }
+                    const cognitiveBox = document.getElementById(`${name}-cog-blacklist`);
+                    renderBlacklist(
+                        cognitiveBox,
+                        agent.cognitive_blacklist,
+                        "Nenhum par bloqueado",
+                        entry => `<span>Bloqueado: ${entry.did}</span><span style="color: var(--muted);">Motivo: ${entry.reason}</span>`
+                    );
 
-                    // Blacklist - Key Guard
-                    const kgBLBox = document.getElementById(`${name}-kg-blacklist`);
-                    kgBLBox.innerHTML = "";
-                    const kgList = Object.keys(agent.key_guard_blacklist);
-                    if (kgList.length > 0) {
-                        kgList.forEach(did => {
-                            const div = document.createElement("div");
-                            div.className = "blacklist-item";
-                            div.innerHTML = `<span>Bloqueado: ${did}</span>`;
-                            kgBLBox.appendChild(div);
-                        });
-                    } else {
-                        kgBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
-                    }
+                    const keyGuardBox = document.getElementById(`${name}-kg-blacklist`);
+                    renderBlacklist(
+                        keyGuardBox,
+                        Object.keys(agent.key_guard_blacklist),
+                        "Nenhum par bloqueado",
+                        did => `<span>Bloqueado: ${did}</span>`
+                    );
 
-                    // Logs and transaction history
-                    const logBox = document.getElementById(`${name}-logs`);
-                    logBox.innerHTML = "";
-                    if (agent.tx_history.length > 0) {
-                        agent.tx_history.forEach(tx => {
-                            const timeStr = new Date(tx.timestamp * 1000).toLocaleTimeString();
-                            const div = document.createElement("div");
-                            div.className = "log-entry";
-                            
-                            let statusClass = "failed";
-                            let statusLabel = tx.status;
-                            if (tx.status === "sent_success") {
-                                statusClass = "sent";
-                                statusLabel = "ENVIADO";
-                            } else if (tx.status === "received") {
-                                statusClass = "received";
-                                statusLabel = "RECEBIDO";
-                            }
-                            
-                            div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-status ${statusClass}">${statusLabel}</span><span class="log-body">${tx.content} ${tx.amount ? `(${tx.amount} U)` : ''}</span>`;
-                            logBox.appendChild(div);
-                        });
-                    } else {
-                        logBox.innerHTML = `<div class="blacklist-empty">Nenhuma transação registrada ainda</div>`;
-                    }
+                    renderLogs(document.getElementById(`${name}-logs`), agent.tx_history);
                 }
             } catch (err) {
                 console.error("Falha ao consultar status da API:", err);
@@ -832,7 +1121,7 @@
         }
 
         async function triggerHandshake(sender, target_endpoint) {
-            showToast(`Iniciando handshake de ${sender} para ${target_endpoint}...`, "warning");
+            showToast(`Iniciando handshake de ${sender} para ${target_endpoint}`, "warning");
             try {
                 const response = await fetch("/api/handshake", {
                     method: "POST",
@@ -841,10 +1130,10 @@
                 });
                 const res = await response.json();
                 if (res.status === "handshake_success") {
-                    showToast(`Handshake concluído! Conectado com ${res.peer}`, "success");
+                    showToast(`Handshake concluido com ${res.peer}`, "success");
                     updateStatus();
                 } else {
-                    showToast(`Falhou: ${res.error}`, "error");
+                    showToast(`Falha no handshake: ${res.error}`, "error");
                 }
             } catch (err) {
                 showToast("Falha ao conectar ao endpoint de handshake", "error");
@@ -856,7 +1145,7 @@
             const amount = document.getElementById(`${sender}-to-amount`).value;
 
             if (!content) {
-                showToast("Escreva um conteúdo para a mensagem", "warning");
+                showToast("Preencha a mensagem antes de enviar", "warning");
                 return;
             }
 
@@ -867,13 +1156,13 @@
                     body: JSON.stringify({ sender, recipient, content, amount })
                 });
                 const res = await response.json();
-                
+
                 if (res.status === "sent") {
-                    showToast(`Mensagem assinada e entregue via P2P para ${recipient}!`, "success");
+                    showToast(`Mensagem enviada com sucesso para ${recipient}`, "success");
                     document.getElementById(`${sender}-to-msg`).value = "";
                     document.getElementById(`${sender}-to-amount`).value = "";
                 } else {
-                    showToast(`Bloqueado: ${res.reason}`, "error");
+                    showToast(`Envio bloqueado: ${res.reason}`, "error");
                 }
                 updateStatus();
             } catch (err) {
@@ -884,7 +1173,7 @@
         async function simulateAttack(sender) {
             const attackType = document.getElementById(`${sender}-attack-type`).value;
             const recipient = sender === "alfa" ? "did:custom:beta" : "did:custom:alfa";
-            
+
             let content = "";
             let amount = null;
 
@@ -904,17 +1193,17 @@
                     body: JSON.stringify({ sender, recipient, content, amount })
                 });
                 const res = await response.json();
-                
+
                 if (res.status === "blocked") {
-                    showToast(`Ataque Bloqueado: ${res.reason}`, "success");
+                    showToast(`Ataque bloqueado: ${res.reason}`, "success");
                 } else if (res.status === "failed") {
-                    showToast(`Key Guard Bloqueou o Ataque: ${res.reason}`, "success");
+                    showToast(`Key Guard bloqueou o ataque: ${res.reason}`, "success");
                 } else {
-                    showToast(`Aviso: Ataque passou! Status: ${res.status}`, "warning");
+                    showToast(`Atencao: teste passou com status ${res.status}`, "warning");
                 }
                 updateStatus();
             } catch (err) {
-                showToast("Erro de conexão", "error");
+                showToast("Erro de conexao durante o teste", "error");
             }
         }
 
@@ -927,7 +1216,7 @@
                 });
                 const res = await response.json();
                 if (res.polled_messages && res.polled_messages.length > 0) {
-                    showToast(`${res.polled_messages.length} mensagens verificadas recebidas!`, "success");
+                    showToast(`${res.polled_messages.length} mensagens verificadas`, "success");
                 } else {
                     showToast("Nenhuma mensagem nova encontrada", "warning");
                 }
@@ -938,22 +1227,22 @@
         }
 
         async function resetSystem() {
-            showToast("Resetando o sistema (limpando caches de dados)...", "warning");
+            showToast("Reiniciando caches e servicos locais", "warning");
             try {
                 const response = await fetch("/api/reset", { method: "POST" });
                 const res = await response.json();
                 if (res.status === "reset_success") {
-                    showToast("Reset concluído. Key Guards reiniciados!", "success");
+                    showToast("Sistema reiniciado com sucesso", "success");
                     updateStatus();
                 } else {
-                    showToast(`Falhou: ${res.error}`, "error");
+                    showToast(`Falha no reset: ${res.error}`, "error");
                 }
             } catch (err) {
                 showToast("Falha ao conectar ao endpoint de reset", "error");
             }
         }
 
-        // Setup polling
+        applyTheme(getPreferredTheme());
         setInterval(updateStatus, 2000);
         updateStatus();
     </script>
