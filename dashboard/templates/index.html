@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A2A Secure Protocol Dashboard (Pure P2P)</title>
+    <title>Painel A2A — Protocolo Seguro P2P</title>
     <!-- Google Fonts: Outfit and Fira Code -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -489,14 +489,14 @@
 
     <header>
         <div class="header-title">
-            <h1>A2A Secure Node Communication Protocol (Pure P2P)</h1>
-            <p>Sovereign Identity Handshake & Key Guard Encryption Shield Sandbox</p>
+            <h1>A2A — Protocolo de Comunicação Segura P2P</h1>
+            <p>Handshake de Identidade Soberana & Escudo de Criptografia Key Guard</p>
         </div>
         <div class="header-info">
-            <div class="contract-badge" title="Registry Mode">
-                ⚙️ Mode: <span id="contract-addr-text">Pure P2P Handshake Mode</span>
+            <div class="contract-badge" title="Modo de Operação">
+                ⚙️ Modo: <span id="contract-addr-text">Modo Handshake P2P Puro</span>
             </div>
-            <button class="btn btn-reset" onclick="resetSystem()">🔄 Clear Caches & Restart</button>
+            <button class="btn btn-reset" onclick="resetSystem()">🔄 Limpar Caches & Reiniciar</button>
         </div>
     </header>
 
@@ -506,42 +506,42 @@
             <div class="agent-header">
                 <div class="agent-title-area">
                     <div class="agent-name">
-                        🤖 Agent Alfa
+                        🤖 Agente Alfa
                     </div>
                     <div class="agent-did">did:custom:alfa</div>
                 </div>
                 <div class="status-pill">
                     <div class="status-dot" id="alfa-status-dot"></div>
-                    <span id="alfa-status-text">Checking...</span>
+                    <span id="alfa-status-text">Verificando...</span>
                 </div>
             </div>
 
             <!-- Connection/Handshake Setup -->
             <div class="setup-actions">
                 <div class="setup-text">
-                    <strong>P2P Link:</strong> Initiate direct handshake connection to Agent Beta
+                    <strong>Link P2P:</strong> Iniciar handshake direto com o Agente Beta
                 </div>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('alfa', 'http://localhost:8002')">🤝 Direct Handshake</button>
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('alfa', 'http://localhost:8002')">🤝 Handshake Direto</button>
             </div>
 
             <!-- Local peer details -->
             <div>
-                <div class="section-title">📡 Peer Address Book (Local Resolution)</div>
+                <div class="section-title">📡 Catálogo de Pares (Resolução Local)</div>
                 <div class="info-grid">
                     <div class="info-row">
-                        <span class="info-label">Partner DID resolved:</span>
-                        <span class="info-value" id="alfa-resolved-did">None (Handshake required)</span>
+                        <span class="info-label">DID do parceiro:</span>
+                        <span class="info-value" id="alfa-resolved-did">Nenhum (Handshake necessário)</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Public Key:</span>
+                        <span class="info-label">Chave pública do parceiro:</span>
                         <span class="info-value" id="alfa-resolved-pubkey">...</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Endpoint URL:</span>
+                        <span class="info-label">Endpoint do parceiro:</span>
                         <span class="info-value" id="alfa-resolved-endpoint">...</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Connection State:</span>
+                        <span class="info-label">Estado da conexão:</span>
                         <span class="info-value" id="alfa-resolved-revoked">...</span>
                     </div>
                 </div>
@@ -549,18 +549,18 @@
 
             <!-- Blacklist States -->
             <div>
-                <div class="section-title">🚫 Blacklist Caches</div>
+                <div class="section-title">🚫 Caches de Blacklist</div>
                 <div class="blacklist-area">
                     <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitive (Python)</div>
+                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitivo (Python)</div>
                         <div class="blacklist-box" id="alfa-cog-blacklist">
-                            <div class="blacklist-empty">Loading...</div>
+                            <div class="blacklist-empty">Carregando...</div>
                         </div>
                     </div>
                     <div>
                         <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Key Guard (Go)</div>
                         <div class="blacklist-box" id="alfa-kg-blacklist">
-                            <div class="blacklist-empty">Loading...</div>
+                            <div class="blacklist-empty">Carregando...</div>
                         </div>
                     </div>
                 </div>
@@ -568,41 +568,41 @@
 
             <!-- Message Action -->
             <div class="action-area">
-                <div class="section-title">✉️ Send Secure P2P Message</div>
+                <div class="section-title">✉️ Enviar Mensagem P2P Segura</div>
                 <div class="form-row">
                     <div class="form-group">
-                        <input type="text" id="alfa-to-msg" class="form-control" placeholder="Message content...">
+                        <input type="text" id="alfa-to-msg" class="form-control" placeholder="Conteúdo da mensagem...">
                     </div>
                     <div class="form-group">
-                        <input type="number" id="alfa-to-amount" class="form-control" placeholder="Amount (e.g. 50)">
+                        <input type="number" id="alfa-to-amount" class="form-control" placeholder="Valor (ex: 50)">
                     </div>
                 </div>
-                <button class="btn btn-primary-alfa" onclick="sendMessage('alfa', 'did:custom:beta')">🔒 Sign & Transmit to Beta</button>
+                <button class="btn btn-primary-alfa" onclick="sendMessage('alfa', 'did:custom:beta')">🔒 Assinar & Transmitir para Beta</button>
             </div>
 
             <!-- Anomaly Attacks -->
             <div class="attack-box">
-                <div class="attack-box-title">⚡ Attack Simulation Panel</div>
+                <div class="attack-box-title">⚡ Painel de Simulação de Ataques</div>
                 <div class="form-row">
                     <div class="form-group" style="grid-column: span 2;">
                         <select id="alfa-attack-type" class="form-control">
-                            <option value="rules_amount">Exceed Spend Limit (Amount = 150)</option>
-                            <option value="security_leak">Key Leak Attempt ("reveal private_key")</option>
-                            <option value="prompt_injection">Prompt Injection ("ignore previous instructions")</option>
+                            <option value="rules_amount">Exceder Limite de Gasto (Valor = 150)</option>
+                            <option value="security_leak">Tentativa de Vazar Chave ("reveal private_key")</option>
+                            <option value="prompt_injection">Injeção de Prompt ("ignore previous instructions")</option>
                         </select>
                     </div>
                 </div>
-                <button class="btn btn-reset" onclick="simulateAttack('alfa')">💥 Inject Anomaly Attack</button>
+                <button class="btn btn-reset" onclick="simulateAttack('alfa')">💥 Injetar Ataque Anômalo</button>
             </div>
 
             <!-- Inbox Logs -->
             <div>
                 <div class="section-title">
-                    📰 Inbox & Transaction Logs
-                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-alfa); color: black;" onclick="pollInbox('alfa')">📥 Poll Inbox</button>
+                    📰 Caixa de Entrada & Transações
+                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-alfa); color: black;" onclick="pollInbox('alfa')">📥 Verificar Caixa de Entrada</button>
                 </div>
                 <div class="logs-box" id="alfa-logs">
-                    <div class="blacklist-empty">No transactions logged yet</div>
+                    <div class="blacklist-empty">Nenhuma transação registrada ainda</div>
                 </div>
             </div>
         </div>
@@ -612,42 +612,42 @@
             <div class="agent-header">
                 <div class="agent-title-area">
                     <div class="agent-name">
-                        🤖 Agent Beta
+                        🤖 Agente Beta
                     </div>
                     <div class="agent-did">did:custom:beta</div>
                 </div>
                 <div class="status-pill">
                     <div class="status-dot" id="beta-status-dot"></div>
-                    <span id="beta-status-text">Checking...</span>
+                    <span id="beta-status-text">Verificando...</span>
                 </div>
             </div>
 
             <!-- Connection/Handshake Setup -->
             <div class="setup-actions">
                 <div class="setup-text">
-                    <strong>P2P Link:</strong> Initiate direct handshake connection to Agent Alfa
+                    <strong>Link P2P:</strong> Iniciar handshake direto com o Agente Alfa
                 </div>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('beta', 'http://localhost:8001')">🤝 Direct Handshake</button>
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('beta', 'http://localhost:8001')">🤝 Handshake Direto</button>
             </div>
 
             <!-- Local peer details -->
             <div>
-                <div class="section-title">📡 Peer Address Book (Local Resolution)</div>
+                <div class="section-title">📡 Catálogo de Pares (Resolução Local)</div>
                 <div class="info-grid">
                     <div class="info-row">
-                        <span class="info-label">Partner DID resolved:</span>
-                        <span class="info-value" id="beta-resolved-did">None (Handshake required)</span>
+                        <span class="info-label">DID do parceiro:</span>
+                        <span class="info-value" id="beta-resolved-did">Nenhum (Handshake necessário)</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Public Key:</span>
+                        <span class="info-label">Chave pública do parceiro:</span>
                         <span class="info-value" id="beta-resolved-pubkey">...</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Endpoint URL:</span>
+                        <span class="info-label">Endpoint do parceiro:</span>
                         <span class="info-value" id="beta-resolved-endpoint">...</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Partner Connection State:</span>
+                        <span class="info-label">Estado da conexão:</span>
                         <span class="info-value" id="beta-resolved-revoked">...</span>
                     </div>
                 </div>
@@ -655,18 +655,18 @@
 
             <!-- Blacklist States -->
             <div>
-                <div class="section-title">🚫 Blacklist Caches</div>
+                <div class="section-title">🚫 Caches de Blacklist</div>
                 <div class="blacklist-area">
                     <div>
-                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitive (Python)</div>
+                        <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitivo (Python)</div>
                         <div class="blacklist-box" id="beta-cog-blacklist">
-                            <div class="blacklist-empty">Loading...</div>
+                            <div class="blacklist-empty">Carregando...</div>
                         </div>
                     </div>
                     <div>
                         <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Key Guard (Go)</div>
                         <div class="blacklist-box" id="beta-kg-blacklist">
-                            <div class="blacklist-empty">Loading...</div>
+                            <div class="blacklist-empty">Carregando...</div>
                         </div>
                     </div>
                 </div>
@@ -674,41 +674,41 @@
 
             <!-- Message Action -->
             <div class="action-area">
-                <div class="section-title">✉️ Send Secure P2P Message</div>
+                <div class="section-title">✉️ Enviar Mensagem P2P Segura</div>
                 <div class="form-row">
                     <div class="form-group">
-                        <input type="text" id="beta-to-msg" class="form-control" placeholder="Message content...">
+                        <input type="text" id="beta-to-msg" class="form-control" placeholder="Conteúdo da mensagem...">
                     </div>
                     <div class="form-group">
-                        <input type="number" id="beta-to-amount" class="form-control" placeholder="Amount (e.g. 50)">
+                        <input type="number" id="beta-to-amount" class="form-control" placeholder="Valor (ex: 50)">
                     </div>
                 </div>
-                <button class="btn btn-primary-beta" onclick="sendMessage('beta', 'did:custom:alfa')">🔒 Sign & Transmit to Alfa</button>
+                <button class="btn btn-primary-beta" onclick="sendMessage('beta', 'did:custom:alfa')">🔒 Assinar & Transmitir para Alfa</button>
             </div>
 
             <!-- Anomaly Attacks -->
             <div class="attack-box">
-                <div class="attack-box-title">⚡ Attack Simulation Panel</div>
+                <div class="attack-box-title">⚡ Painel de Simulação de Ataques</div>
                 <div class="form-row">
                     <div class="form-group" style="grid-column: span 2;">
                         <select id="beta-attack-type" class="form-control">
-                            <option value="rules_amount">Exceed Spend Limit (Amount = 150)</option>
-                            <option value="security_leak">Key Leak Attempt ("reveal private_key")</option>
-                            <option value="prompt_injection">Prompt Injection ("ignore previous instructions")</option>
+                            <option value="rules_amount">Exceder Limite de Gasto (Valor = 150)</option>
+                            <option value="security_leak">Tentativa de Vazar Chave ("reveal private_key")</option>
+                            <option value="prompt_injection">Injeção de Prompt ("ignore previous instructions")</option>
                         </select>
                     </div>
                 </div>
-                <button class="btn btn-reset" onclick="simulateAttack('beta')">💥 Inject Anomaly Attack</button>
+                <button class="btn btn-reset" onclick="simulateAttack('beta')">💥 Injetar Ataque Anômalo</button>
             </div>
 
             <!-- Inbox Logs -->
             <div>
                 <div class="section-title">
-                    📰 Inbox & Transaction Logs
-                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-beta); color: white;" onclick="pollInbox('beta')">📥 Poll Inbox</button>
+                    📰 Caixa de Entrada & Transações
+                    <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: var(--accent-beta); color: white;" onclick="pollInbox('beta')">📥 Verificar Caixa de Entrada</button>
                 </div>
                 <div class="logs-box" id="beta-logs">
-                    <div class="blacklist-empty">No transactions logged yet</div>
+                    <div class="blacklist-empty">Nenhuma transação registrada ainda</div>
                 </div>
             </div>
         </div>
@@ -758,16 +758,16 @@
                     const r_rev = document.getElementById(`${name}-resolved-revoked`);
                     
                     if (agent.resolved_partner && !agent.resolved_partner.error) {
-                        r_did.innerText = agent.resolved_partner.did || "None";
-                        r_pub.innerText = agent.resolved_partner.public_key ? agent.resolved_partner.public_key.slice(0, 25) + "..." : "None";
-                        r_end.innerText = agent.resolved_partner.endpoint || "None";
-                        r_rev.innerText = agent.resolved_partner.revoked ? "🔴 Peer Revoked Locally" : "🟢 Peer Active & Verified";
+                        r_did.innerText = agent.resolved_partner.did || "Nenhum";
+                        r_pub.innerText = agent.resolved_partner.public_key ? agent.resolved_partner.public_key.slice(0, 25) + "..." : "Nenhuma";
+                        r_end.innerText = agent.resolved_partner.endpoint || "Nenhum";
+                        r_rev.innerText = agent.resolved_partner.revoked ? "🔴 Par Revogado Localmente" : "🟢 Par Ativo e Verificado";
                         r_rev.style.color = agent.resolved_partner.revoked ? "var(--error)" : "var(--success)";
                     } else {
-                        r_did.innerText = "None (Handshake required)";
-                        r_pub.innerText = "None";
-                        r_end.innerText = "None";
-                        r_rev.innerText = "Disconnected";
+                        r_did.innerText = "Nenhum (Handshake necessário)";
+                        r_pub.innerText = "Nenhuma";
+                        r_end.innerText = "Nenhum";
+                        r_rev.innerText = "Desconectado";
                         r_rev.style.color = "var(--text-muted)";
                     }
 
@@ -778,11 +778,11 @@
                         agent.cognitive_blacklist.forEach(entry => {
                             const div = document.createElement("div");
                             div.className = "blacklist-item";
-                            div.innerHTML = `<span>Blocked: ${entry.did}</span> <span style="font-size:0.65rem; color:var(--text-muted)">Reason: ${entry.reason}</span>`;
+                            div.innerHTML = `<span>Bloqueado: ${entry.did}</span> <span style="font-size:0.65rem; color:var(--text-muted)">Motivo: ${entry.reason}</span>`;
                             cogBLBox.appendChild(div);
                         });
                     } else {
-                        cogBLBox.innerHTML = `<div class="blacklist-empty">🟢 No peers blacklisted</div>`;
+                        cogBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
                     }
 
                     // Blacklist - Key Guard
@@ -793,11 +793,11 @@
                         kgList.forEach(did => {
                             const div = document.createElement("div");
                             div.className = "blacklist-item";
-                            div.innerHTML = `<span>Blocked: ${did}</span>`;
+                            div.innerHTML = `<span>Bloqueado: ${did}</span>`;
                             kgBLBox.appendChild(div);
                         });
                     } else {
-                        kgBLBox.innerHTML = `<div class="blacklist-empty">🟢 No peers blacklisted</div>`;
+                        kgBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
                     }
 
                     // Logs and transaction history
@@ -813,26 +813,26 @@
                             let statusLabel = tx.status;
                             if (tx.status === "sent_success") {
                                 statusClass = "sent";
-                                statusLabel = "SENT";
+                                statusLabel = "ENVIADO";
                             } else if (tx.status === "received") {
                                 statusClass = "received";
-                                statusLabel = "RCVD";
+                                statusLabel = "RECEBIDO";
                             }
                             
                             div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-status ${statusClass}">${statusLabel}</span><span class="log-body">${tx.content} ${tx.amount ? `(${tx.amount} U)` : ''}</span>`;
                             logBox.appendChild(div);
                         });
                     } else {
-                        logBox.innerHTML = `<div class="blacklist-empty">No transactions logged yet</div>`;
+                        logBox.innerHTML = `<div class="blacklist-empty">Nenhuma transação registrada ainda</div>`;
                     }
                 }
             } catch (err) {
-                console.error("Failed to query API status:", err);
+                console.error("Falha ao consultar status da API:", err);
             }
         }
 
         async function triggerHandshake(sender, target_endpoint) {
-            showToast(`Initiating handshake from ${sender} to ${target_endpoint}...`, "warning");
+            showToast(`Iniciando handshake de ${sender} para ${target_endpoint}...`, "warning");
             try {
                 const response = await fetch("/api/handshake", {
                     method: "POST",
@@ -841,13 +841,13 @@
                 });
                 const res = await response.json();
                 if (res.status === "handshake_success") {
-                    showToast(`Handshake complete! Connected with ${res.peer}`, "success");
+                    showToast(`Handshake concluído! Conectado com ${res.peer}`, "success");
                     updateStatus();
                 } else {
-                    showToast(`Failed: ${res.error}`, "error");
+                    showToast(`Falhou: ${res.error}`, "error");
                 }
             } catch (err) {
-                showToast("Failed to connect to handshake endpoint", "error");
+                showToast("Falha ao conectar ao endpoint de handshake", "error");
             }
         }
 
@@ -856,7 +856,7 @@
             const amount = document.getElementById(`${sender}-to-amount`).value;
 
             if (!content) {
-                showToast("Please write a message content", "warning");
+                showToast("Escreva um conteúdo para a mensagem", "warning");
                 return;
             }
 
@@ -869,15 +869,15 @@
                 const res = await response.json();
                 
                 if (res.status === "sent") {
-                    showToast(`Message signed & P2P delivered to ${recipient}!`, "success");
+                    showToast(`Mensagem assinada e entregue via P2P para ${recipient}!`, "success");
                     document.getElementById(`${sender}-to-msg`).value = "";
                     document.getElementById(`${sender}-to-amount`).value = "";
                 } else {
-                    showToast(`Blocked: ${res.reason}`, "error");
+                    showToast(`Bloqueado: ${res.reason}`, "error");
                 }
                 updateStatus();
             } catch (err) {
-                showToast("Failed to connect to backend", "error");
+                showToast("Falha ao conectar ao servidor", "error");
             }
         }
 
@@ -906,15 +906,15 @@
                 const res = await response.json();
                 
                 if (res.status === "blocked") {
-                    showToast(`Attack Blocked: ${res.reason}`, "success");
+                    showToast(`Ataque Bloqueado: ${res.reason}`, "success");
                 } else if (res.status === "failed") {
-                    showToast(`Key Guard Blocked Attack: ${res.reason}`, "success");
+                    showToast(`Key Guard Bloqueou o Ataque: ${res.reason}`, "success");
                 } else {
-                    showToast(`Warning: Attack went through! Status: ${res.status}`, "warning");
+                    showToast(`Aviso: Ataque passou! Status: ${res.status}`, "warning");
                 }
                 updateStatus();
             } catch (err) {
-                showToast("Connection error", "error");
+                showToast("Erro de conexão", "error");
             }
         }
 
@@ -927,29 +927,29 @@
                 });
                 const res = await response.json();
                 if (res.polled_messages && res.polled_messages.length > 0) {
-                    showToast(`Successfully parsed ${res.polled_messages.length} verified messages!`, "success");
+                    showToast(`${res.polled_messages.length} mensagens verificadas recebidas!`, "success");
                 } else {
-                    showToast("No new messages found", "warning");
+                    showToast("Nenhuma mensagem nova encontrada", "warning");
                 }
                 updateStatus();
             } catch (err) {
-                showToast("Failed to poll inbox", "error");
+                showToast("Falha ao verificar caixa de entrada", "error");
             }
         }
 
         async function resetSystem() {
-            showToast("Resetting system state (cleaning data caches)...", "warning");
+            showToast("Resetando o sistema (limpando caches de dados)...", "warning");
             try {
                 const response = await fetch("/api/reset", { method: "POST" });
                 const res = await response.json();
                 if (res.status === "reset_success") {
-                    showToast("System reset complete. Key Guards restarted!", "success");
+                    showToast("Reset concluído. Key Guards reiniciados!", "success");
                     updateStatus();
                 } else {
-                    showToast(`Failed: ${res.error}`, "error");
+                    showToast(`Falhou: ${res.error}`, "error");
                 }
             } catch (err) {
-                showToast("Failed to connect to reset endpoint", "error");
+                showToast("Falha ao conectar ao endpoint de reset", "error");
             }
         }
 
