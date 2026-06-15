@@ -7,3 +7,4 @@ key-guard/key-guard-bin
 __pycache__/
 .idea/
 .vscode/
+.playwright-mcp/
