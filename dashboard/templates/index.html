@@ -3,34 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Controle do Protocolo Seguro A2A (P2P Puro)</title>
-    <!-- Google Fonts: Outfit and Fira Code -->
+    <title>Painel A2A P2P Seguro</title>
+    <!-- Google Fonts: Inter and JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: hsl(225, 25%, 8%);
-            --bg-card: hsla(223, 20%, 14%, 0.6);
-            --bg-card-hover: hsla(223, 20%, 18%, 0.8);
-            --text-main: hsl(210, 20%, 95%);
-            --text-muted: hsl(215, 12%, 60%);
-            
-            --accent-alfa: hsl(180, 80%, 50%);
-            --accent-alfa-glow: hsla(180, 80%, 50%, 0.15);
-            --accent-beta: hsl(270, 80%, 65%);
-            --accent-beta-glow: hsla(270, 80%, 65%, 0.15);
-            
-            --success: hsl(145, 65%, 45%);
-            --error: hsl(355, 75%, 50%);
-            --warning: hsl(45, 80%, 50%);
-            
-            --border: hsla(217, 15%, 25%, 0.4);
-            --border-glow-alfa: hsla(180, 80%, 50%, 0.3);
-            --border-glow-beta: hsla(270, 80%, 65%, 0.3);
-            
-            --font-outfit: 'Outfit', sans-serif;
-            --font-code: 'Fira Code', monospace;
+            --font-outfit: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-code: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+        }
+
+        [data-theme="dark"] {
+            --bg-base: #141414;
+            --bg-card: #1f1f1f;
+            --bg-card-hover: #2a2a2a;
+            --text-main: #ece7e1;
+            --text-muted: #9ca3a0;
+
+            --accent-alfa: #d97706;
+            --accent-alfa-glow: rgba(217, 119, 6, 0.12);
+            --accent-beta: #a855f7;
+            --accent-beta-glow: rgba(168, 85, 247, 0.12);
+
+            --success: #34d399;
+            --error: #f87171;
+            --warning: #fbbf24;
+
+            --border: #333333;
+            --border-glow-alfa: rgba(217, 119, 6, 0.25);
+            --border-glow-beta: rgba(168, 85, 247, 0.25);
+        }
+
+        [data-theme="light"] {
+            --bg-base: #f6f7f9;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f9fafb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --accent-alfa: #2563eb;
+            --accent-alfa-glow: rgba(37, 99, 235, 0.08);
+            --accent-beta: #475569;
+            --accent-beta-glow: rgba(71, 85, 105, 0.08);
+            --success: #15803d;
+            --error: #b91c1c;
+            --warning: #b45309;
+            --border: #e5e7eb;
+            --border-glow-alfa: #bfdbfe;
+            --border-glow-beta: #cbd5e1;
         }
 
         * {
@@ -41,17 +61,21 @@
 
         body {
             background-color: var(--bg-base);
-            background-image: 
-                radial-gradient(at 10% 10%, hsla(180, 80%, 50%, 0.05) 0px, transparent 50%),
-                radial-gradient(at 90% 90%, hsla(270, 80%, 65%, 0.05) 0px, transparent 50%);
             color: var(--text-main);
             font-family: var(--font-outfit);
             min-height: 100vh;
-            padding: 2rem;
+            padding: 1.5rem;
             display: flex;
             flex-direction: column;
-            gap: 2rem;
+            gap: 1.5rem;
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background-image:
+                radial-gradient(at 10% 10%, rgba(217, 119, 6, 0.04) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(168, 85, 247, 0.04) 0px, transparent 50%);
         }
 
         header {
@@ -614,6 +638,295 @@
                 opacity: 1;
             }
         }
+
+        header,
+        .manager-panel,
+        .agent-card,
+        .db-visualizer-panel,
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 30px rgba(15, 23, 42, 0.06);
+            backdrop-filter: none;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        header {
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .header-title h1 {
+            background: none;
+            color: var(--text-main);
+            -webkit-text-fill-color: currentColor;
+            font-size: clamp(1.35rem, 2vw, 1.8rem);
+            letter-spacing: -0.03em;
+        }
+
+        .header-title p,
+        .setup-text,
+        .info-label,
+        .db-visualizer-card-title,
+        .section-title {
+            color: var(--text-muted);
+        }
+
+        .header-info {
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .contract-badge,
+        .status-pill,
+        .info-grid,
+        .setup-actions,
+        .blacklist-box,
+        .db-visualizer-card,
+        .table-container {
+            background: color-mix(in srgb, var(--bg-card) 98%, transparent);
+            border-color: var(--border);
+            color: var(--text-main);
+        }
+
+        .form-control {
+            background: color-mix(in srgb, var(--bg-card) 95%, transparent);
+            border-color: var(--border);
+            color: var(--text-main);
+        }
+
+        .logs-box {
+            background: color-mix(in srgb, var(--bg-card) 97%, transparent);
+            border-color: var(--border);
+        }
+
+        .contract-badge {
+            color: var(--text-muted);
+            border-radius: 999px;
+        }
+
+        .manager-title,
+        .db-visualizer-title,
+        .agent-card.alfa .agent-name,
+        .agent-card.beta .agent-name {
+            color: var(--text-main);
+        }
+
+        .manager-title,
+        .section-title,
+        .db-visualizer-card-title,
+        .attack-box-title {
+            letter-spacing: 0.04em;
+        }
+
+        .manager-title,
+        .db-visualizer-title,
+        .agent-name {
+            font-weight: 700;
+        }
+
+        .agent-card {
+            border-radius: 16px;
+            padding: 1.5rem;
+            gap: 1.25rem;
+        }
+
+        .agent-card:hover,
+        .agent-card.alfa:hover,
+        .agent-card.beta:hover {
+            border-color: var(--border) !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 36px rgba(15, 23, 42, 0.08) !important;
+        }
+
+        .agent-name {
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .agent-did,
+        .info-value,
+        .log-time,
+        .blacklist-item,
+        .contract-badge {
+            font-size: 0.78rem;
+        }
+
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 10px;
+            box-shadow: none;
+            transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+        }
+
+        .btn:hover {
+            box-shadow: none !important;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary-alfa {
+            background: var(--accent-alfa);
+            color: #ffffff;
+            border-color: var(--accent-alfa);
+        }
+
+        .btn-primary-alfa:hover {
+            filter: brightness(1.1);
+            border-color: var(--accent-alfa);
+            color: #ffffff;
+        }
+
+        .btn-primary-beta {
+            background: var(--accent-beta);
+            color: #ffffff;
+            border-color: var(--accent-beta);
+        }
+
+        .btn-primary-beta:hover {
+            filter: brightness(1.1);
+            border-color: var(--accent-beta);
+            color: #ffffff;
+        }
+
+        .btn-primary-create {
+            background: linear-gradient(135deg, var(--accent-alfa), var(--accent-beta));
+            color: #ffffff;
+        }
+
+        .btn-primary-create:hover {
+            filter: brightness(1.1);
+            color: #ffffff;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border-color: var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-muted);
+        }
+
+        .btn-reset,
+        .btn-delete-agent {
+            background: var(--bg-card);
+            color: var(--error);
+            border-color: var(--border);
+        }
+
+        .btn-reset:hover,
+        .btn-delete-agent:hover {
+            background: color-mix(in srgb, var(--error) 10%, var(--bg-card));
+            color: var(--error);
+            border-color: var(--error);
+        }
+
+        .form-control {
+            border-radius: 10px;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-alfa);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-alfa) 15%, transparent);
+            outline: none;
+        }
+
+        .status-dot.active {
+            background-color: var(--success);
+            box-shadow: none;
+        }
+
+        .status-dot.inactive {
+            background-color: var(--error);
+            box-shadow: none;
+        }
+
+        .blacklist-empty {
+            color: var(--text-muted);
+        }
+
+        .blacklist-item {
+            color: var(--error);
+        }
+
+        .log-entry {
+            border-bottom-color: var(--border);
+        }
+
+        .log-status.sent { background: color-mix(in srgb, var(--accent-alfa) 20%, transparent); color: var(--accent-alfa); }
+        .log-status.received { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+        .log-status.failed { background: color-mix(in srgb, var(--error) 20%, transparent); color: var(--error); }
+
+        .attack-box {
+            border-color: var(--error);
+            background: color-mix(in srgb, var(--error) 5%, var(--bg-card));
+        }
+
+        .attack-box-title {
+            color: var(--error);
+        }
+
+        .db-table th {
+            background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+            color: var(--text-muted);
+        }
+
+        .db-table td {
+            color: var(--text-main);
+            border-bottom-color: var(--border);
+        }
+
+        .db-table tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .toast {
+            color: var(--text-main);
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+        }
+
+        .btn-theme {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: var(--font-outfit);
+            transition: all 0.2s ease;
+        }
+
+        .btn-theme:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-main);
+        }
+
+        @media (max-width: 760px) {
+            body {
+                padding: 1rem;
+            }
+
+            header,
+            .header-info,
+            .form-row,
+            .blacklist-area {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .form-group-horizontal {
+                flex-direction: column;
+                align-items: stretch !important;
+            }
+
+            .form-group-horizontal .form-control {
+                max-width: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -625,19 +938,20 @@
         </div>
         <div class="header-info">
             <div class="contract-badge" title="Modo de Registro">
-                ⚙️ Modo: <span id="contract-addr-text">Modo de Handshake P2P Puro</span>
+                Modo: <span id="contract-addr-text">Handshake P2P Puro</span>
             </div>
-            <button class="btn btn-reset" onclick="resetSystem()">🔄 Limpar Caches & Reiniciar</button>
+            <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()">🌙 Escuro</button>
+            <button class="btn btn-reset" onclick="resetSystem()">Limpar caches e reiniciar</button>
         </div>
     </header>
 
     <!-- Orchestration and Creation Manager -->
     <section class="manager-panel">
-        <div class="manager-title">🛠️ Registro & Orquestração de Agentes</div>
+        <div class="manager-title">Registro e orquestração de agentes</div>
         <div class="manager-controls">
             <div class="form-group-horizontal" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
                 <input type="text" id="new-agent-name" class="form-control" placeholder="Nome do novo agente (ex: gamma)" style="flex: 1; max-width: 300px;">
-                <button class="btn btn-primary-create" onclick="createNewAgent()">➕ Criar Agente & Chaves</button>
+                <button class="btn btn-primary-create" onclick="createNewAgent()">Criar agente e chaves</button>
             </div>
             <div class="setup-text">
                 Criar um agente dinamicamente inicia um novo Key Guard Go em uma porta única, gerando seu par de chaves Ed25519 e configurando seu banco de dados.
@@ -653,18 +967,18 @@
     <!-- Database and Cache Visualizer -->
     <section class="db-visualizer-panel">
         <div class="db-visualizer-header">
-            <div class="db-visualizer-title">📊 Visualizador de Banco de Dados & Cache Criptográfico</div>
+            <div class="db-visualizer-title">Banco de dados e cache criptográfico</div>
             <div style="display: flex; gap: 1rem; align-items: center;">
                 <label class="info-label" style="margin: 0;">Selecionar Agente:</label>
                 <select id="db-visualizer-select" class="form-control" style="min-width: 150px;" onchange="loadDatabaseView()"></select>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadDatabaseView()">🔄 Atualizar Visualização</button>
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadDatabaseView()">Atualizar visualização</button>
             </div>
         </div>
         
         <div class="db-visualizer-grid">
             <!-- SQLite tx_history -->
             <div class="db-visualizer-card">
-                <div class="db-visualizer-card-title">💾 SQLite DB: Tabela tx_history</div>
+                <div class="db-visualizer-card-title">SQLite DB: tabela tx_history</div>
                 <div class="table-container">
                     <table class="db-table" id="db-table-tx-history">
                         <thead>
@@ -687,7 +1001,7 @@
 
             <!-- SQLite cognitive_blacklist -->
             <div class="db-visualizer-card">
-                <div class="db-visualizer-card-title">🚫 SQLite DB: Tabela cognitive_blacklist</div>
+                <div class="db-visualizer-card-title">SQLite DB: tabela cognitive_blacklist</div>
                 <div class="table-container">
                     <table class="db-table" id="db-table-cognitive-blacklist">
                         <thead>
@@ -706,7 +1020,7 @@
 
             <!-- Go: peers.json -->
             <div class="db-visualizer-card">
-                <div class="db-visualizer-card-title">📡 Cache Key Guard: peers.json (Catálogo de Endereços)</div>
+                <div class="db-visualizer-card-title">Cache Key Guard: peers.json (catálogo de endereços)</div>
                 <div class="table-container">
                     <table class="db-table" id="db-table-peers-json">
                         <thead>
@@ -726,7 +1040,7 @@
 
             <!-- Go: blacklist.json -->
             <div class="db-visualizer-card">
-                <div class="db-visualizer-card-title">🔒 Cache Key Guard: blacklist.json</div>
+                <div class="db-visualizer-card-title">Cache Key Guard: blacklist.json</div>
                 <div class="table-container">
                     <table class="db-table" id="db-table-blacklist-json">
                         <thead>
@@ -762,35 +1076,40 @@
             }, 3500);
         }
 
+        function getCurrentTheme() {
+            return document.documentElement.getAttribute('data-theme') || 'light';
+        }
+
         function getAgentColors(name) {
+            const theme = getCurrentTheme();
             if (name === 'alfa') {
                 return {
-                    accent: 'hsl(180, 80%, 50%)',
-                    glow: 'hsla(180, 80%, 50%, 0.15)',
-                    borderGlow: 'hsla(180, 80%, 50%, 0.3)',
+                    accent: theme === 'dark' ? '#d97706' : '#2563eb',
+                    glow: 'transparent',
+                    borderGlow: theme === 'dark' ? 'rgba(217, 119, 6, 0.25)' : '#bfdbfe',
                     btnClass: 'btn-primary-alfa'
                 };
             }
             if (name === 'beta') {
                 return {
-                    accent: 'hsl(270, 80%, 65%)',
-                    glow: 'hsla(270, 80%, 65%, 0.15)',
-                    borderGlow: 'hsla(270, 80%, 65%, 0.3)',
+                    accent: theme === 'dark' ? '#a855f7' : '#475569',
+                    glow: 'transparent',
+                    borderGlow: theme === 'dark' ? 'rgba(168, 85, 247, 0.25)' : '#cbd5e1',
                     btnClass: 'btn-primary-beta'
                 };
             }
-            // Generate dynamically using hash of the name
+            const palette = theme === 'dark'
+                ? ['#d97706', '#a855f7', '#34d399', '#f59e0b', '#ec4899', '#14b8a6']
+                : ['#0f766e', '#4f46e5', '#0369a1', '#334155', '#6d28d9', '#b45309'];
             let hash = 0;
             for (let i = 0; i < name.length; i++) {
                 hash = name.charCodeAt(i) + ((hash << 5) - hash);
             }
-            const h = Math.abs(hash) % 360;
-            const s = 75;
-            const l = 60;
+            const accent = palette[Math.abs(hash) % palette.length];
             return {
-                accent: `hsl(${h}, ${s}%, ${l}%)`,
-                glow: `hsla(${h}, ${s}%, ${l}%, 0.15)`,
-                borderGlow: `hsla(${h}, ${s}%, ${l}%, 0.3)`,
+                accent,
+                glow: 'transparent',
+                borderGlow: theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#cbd5e1',
                 btnClass: `btn-dynamic-${name}`
             };
         }
@@ -807,18 +1126,20 @@
                 }
                 .agent-card.${name}:hover {
                     border-color: ${colors.borderGlow};
-                    box-shadow: 0 8px 32px 0 ${colors.glow};
+                    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 36px ${colors.glow};
                 }
                 .agent-card.${name} .agent-name {
-                    color: ${colors.accent};
+                    color: var(--text-main);
                 }
                 .btn-dynamic-${name} {
                     background: ${colors.accent};
-                    color: hsl(225, 25%, 8%);
+                    color: #ffffff;
+                    border-color: ${colors.accent};
                 }
                 .btn-dynamic-${name}:hover {
-                    box-shadow: 0 0 15px ${colors.accent};
-                    transform: translateY(-2px);
+                    filter: brightness(1.1);
+                    box-shadow: none;
+                    transform: translateY(-1px);
                 }
             `;
             document.head.appendChild(styleEl);
@@ -843,7 +1164,7 @@
                 <div class="agent-header">
                     <div class="agent-title-area">
                         <div class="agent-name">
-                            🤖 Agente ${name.charAt(0).toUpperCase() + name.slice(1)}
+                            Agente ${name.charAt(0).toUpperCase() + name.slice(1)}
                         </div>
                         <div class="agent-did">did:custom:${name}</div>
                     </div>
@@ -863,13 +1184,13 @@
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                         <select id="${name}-handshake-target" class="form-control" style="padding: 0.3rem; font-size: 0.8rem; min-width: 120px;"></select>
-                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('${name}')">🤝 Handshake</button>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('${name}')">Handshake</button>
                     </div>
                 </div>
 
                 <!-- Local peer details -->
                 <div>
-                    <div class="section-title">📡 Catálogo de Pares (Resolução Local)</div>
+                    <div class="section-title">Catálogo de pares (resolução local)</div>
                     <div class="info-grid">
                         <div class="info-row">
                             <span class="info-label">DID do Parceiro:</span>
@@ -892,7 +1213,7 @@
 
                 <!-- Blacklist States -->
                 <div>
-                    <div class="section-title">🚫 Caches de Blacklist</div>
+                    <div class="section-title">Caches de blacklist</div>
                     <div class="blacklist-area">
                         <div>
                             <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitivo (Python)</div>
@@ -911,7 +1232,7 @@
 
                 <!-- Message Action -->
                 <div class="action-area">
-                    <div class="section-title">✉️ Enviar Mensagem P2P Segura</div>
+                    <div class="section-title">Enviar mensagem P2P segura</div>
                     <div class="form-row" style="margin-bottom: 0.5rem;">
                         <div class="form-group" style="grid-column: span 2;">
                             <label class="info-label">Destinatário:</label>
@@ -926,12 +1247,12 @@
                             <input type="number" id="${name}-to-amount" class="form-control" placeholder="Valor">
                         </div>
                     </div>
-                    <button class="btn ${colors.btnClass}" onclick="sendMessage('${name}')">🔒 Assinar & Transmitir</button>
+                    <button class="btn ${colors.btnClass}" onclick="sendMessage('${name}')">Assinar e transmitir</button>
                 </div>
 
                 <!-- Anomaly Attacks -->
                 <div class="attack-box">
-                    <div class="attack-box-title">⚡ Painel de Simulação de Ataques</div>
+                    <div class="attack-box-title">Simulação de ataques</div>
                     <div class="form-row">
                         <div class="form-group" style="grid-column: span 2;">
                             <select id="${name}-attack-type" class="form-control">
@@ -941,14 +1262,14 @@
                             </select>
                         </div>
                     </div>
-                    <button class="btn btn-reset" onclick="simulateAttack('${name}')">💥 Injetar Ataque Anômalo</button>
+                    <button class="btn btn-reset" onclick="simulateAttack('${name}')">Injetar ataque anômalo</button>
                 </div>
 
                 <!-- Inbox Logs -->
                 <div>
                     <div class="section-title">
-                        📰 Caixa de Entrada & Logs de Transações
-                        <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: ${colors.accent}; color: hsl(225, 25%, 8%);" onclick="pollInbox('${name}')">📥 Consultar Caixa de Entrada</button>
+                        Caixa de entrada e logs de transações
+                        <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: ${colors.accent}; color: #ffffff;" onclick="pollInbox('${name}')">Consultar caixa de entrada</button>
                     </div>
                     <div class="logs-box" id="${name}-logs">
                         <div class="blacklist-empty">Nenhuma transação registrada ainda</div>
@@ -1069,7 +1390,7 @@
                         r_did.innerText = firstPeer.did || "Nenhum";
                         r_pub.innerText = firstPeer.public_key ? firstPeer.public_key.slice(0, 25) + "..." : "Nenhum";
                         r_end.innerText = firstPeer.endpoint || "Nenhum";
-                        r_rev.innerText = firstPeer.revoked ? "🔴 Par Revogado Localmente" : "🟢 Par Ativo & Verificado";
+                        r_rev.innerText = firstPeer.revoked ? "Par revogado localmente" : "Par ativo e verificado";
                         r_rev.style.color = firstPeer.revoked ? "var(--error)" : "var(--success)";
                     } else {
                         r_did.innerText = "Nenhum (Handshake necessário)";
@@ -1090,7 +1411,7 @@
                             cogBLBox.appendChild(div);
                         });
                     } else {
-                        cogBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
+                        cogBLBox.innerHTML = `<div class="blacklist-empty">Nenhum par bloqueado</div>`;
                     }
 
                     // Blacklist - Key Guard
@@ -1105,7 +1426,7 @@
                             kgBLBox.appendChild(div);
                         });
                     } else {
-                        kgBLBox.innerHTML = `<div class="blacklist-empty">🟢 Nenhum par bloqueado</div>`;
+                        kgBLBox.innerHTML = `<div class="blacklist-empty">Nenhum par bloqueado</div>`;
                     }
 
                     // Logs and transaction history
@@ -1380,7 +1701,7 @@
                     peersKeys.forEach(key => {
                         const p = data.peers_store[key];
                         const tr = document.createElement("tr");
-                        const stateText = p.revoked ? "🔴 Revogado" : "🟢 Ativo";
+                        const stateText = p.revoked ? "Revogado" : "Ativo";
                         const stateStyle = p.revoked ? "color: var(--error)" : "color: var(--success)";
                         tr.innerHTML = `
                             <td><code>${p.did}</code></td>
@@ -1435,11 +1756,30 @@
             }
         }
 
+        // Theme toggle
+        function toggleTheme() {
+            const current = getCurrentTheme();
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('a2a-theme', next);
+            document.getElementById('theme-toggle').innerText = next === 'dark' ? '🌙 Escuro' : '☀️ Claro';
+            updateStatus();
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('a2a-theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            document.getElementById('theme-toggle').innerText = theme === 'dark' ? '🌙 Escuro' : '☀️ Claro';
+        }
+
         // Setup polling
         setInterval(updateStatus, 2000);
         
         // Initial setup load
         (async () => {
+            initTheme();
             await updateStatus();
             setTimeout(loadDatabaseView, 500);
         })();
