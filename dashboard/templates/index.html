@@ -1,69 +1,36 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel A2A - Operacao segura entre agentes</title>
+    <title>A2A Secure Protocol Dashboard (Pure P2P)</title>
+    <!-- Google Fonts: Outfit and Fira Code -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #f3f6fb;
-            --surface: #ffffff;
-            --surface-subtle: #f8fafc;
-            --surface-strong: #eef2f7;
-            --text: #142033;
-            --muted: #66758a;
-            --border: #d9e1ec;
-            --border-strong: #c5d0df;
-            --shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
-            --primary: #1f5eff;
-            --primary-soft: rgba(31, 94, 255, 0.1);
-            --alfa: #2563eb;
-            --beta: #7c3aed;
-            --success: #198754;
-            --success-soft: rgba(25, 135, 84, 0.12);
-            --error: #d64545;
-            --error-soft: rgba(214, 69, 69, 0.12);
-            --warning: #b7791f;
-            --warning-soft: rgba(183, 121, 31, 0.14);
-            --font-sans: "Inter", sans-serif;
-            --font-mono: "JetBrains Mono", monospace;
-            --header-gradient: linear-gradient(180deg, rgba(31, 94, 255, 0.04), transparent 220px);
-            --toast-bg: rgba(20, 32, 51, 0.95);
-            --toast-text: #ffffff;
-            --attack-surface: #fff9f7;
-            --attack-border: #f0d3cd;
-            --attack-text: #9a3412;
-        }
-
-        [data-theme="dark"] {
-            --bg: #0f172a;
-            --surface: #111c31;
-            --surface-subtle: #16233d;
-            --surface-strong: #1b2a46;
-            --text: #e5edf8;
-            --muted: #97a6bb;
-            --border: #25344d;
-            --border-strong: #334766;
-            --shadow: 0 18px 44px rgba(2, 6, 23, 0.35);
-            --primary: #7aa2ff;
-            --primary-soft: rgba(122, 162, 255, 0.16);
-            --alfa: #63a2ff;
-            --beta: #9b7dff;
-            --success: #3ecf8e;
-            --success-soft: rgba(62, 207, 142, 0.14);
-            --error: #ff7a7a;
-            --error-soft: rgba(255, 122, 122, 0.16);
-            --warning: #f1b24a;
-            --warning-soft: rgba(241, 178, 74, 0.16);
-            --header-gradient: linear-gradient(180deg, rgba(122, 162, 255, 0.08), transparent 220px);
-            --toast-bg: rgba(10, 16, 29, 0.96);
-            --toast-text: #f8fbff;
-            --attack-surface: #231717;
-            --attack-border: #553333;
-            --attack-text: #ffb4a8;
+            --bg-base: hsl(225, 25%, 8%);
+            --bg-card: hsla(223, 20%, 14%, 0.6);
+            --bg-card-hover: hsla(223, 20%, 18%, 0.8);
+            --text-main: hsl(210, 20%, 95%);
+            --text-muted: hsl(215, 12%, 60%);
+            
+            --accent-alfa: hsl(180, 80%, 50%);
+            --accent-alfa-glow: hsla(180, 80%, 50%, 0.15);
+            --accent-beta: hsl(270, 80%, 65%);
+            --accent-beta-glow: hsla(270, 80%, 65%, 0.15);
+            
+            --success: hsl(145, 65%, 45%);
+            --error: hsl(355, 75%, 50%);
+            --warning: hsl(45, 80%, 50%);
+            
+            --border: hsla(217, 15%, 25%, 0.4);
+            --border-glow-alfa: hsla(180, 80%, 50%, 0.3);
+            --border-glow-beta: hsla(270, 80%, 65%, 0.3);
+            
+            --font-outfit: 'Outfit', sans-serif;
+            --font-code: 'Fira Code', monospace;
         }
 
         * {
@@ -73,537 +40,572 @@
         }
 
         body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 10% 10%, hsla(180, 80%, 50%, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, hsla(270, 80%, 65%, 0.05) 0px, transparent 50%);
+            color: var(--text-main);
+            font-family: var(--font-outfit);
             min-height: 100vh;
-            background: var(--header-gradient), var(--bg);
-            color: var(--text);
-            font-family: var(--font-sans);
-            padding: 32px;
-            transition: background 0.2s ease, color 0.2s ease;
-        }
-
-        .app-shell {
-            max-width: 1440px;
-            margin: 0 auto;
+            padding: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 2rem;
+            overflow-x: hidden;
         }
 
-        .page-header {
-            background: var(--surface);
+        header {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
             border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 28px 32px;
-            box-shadow: var(--shadow);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            gap: 24px;
+            align-items: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
-        .eyebrow {
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-alfa), var(--accent-beta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-title p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .header-info {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .contract-badge {
+            background: hsla(223, 20%, 10%, 0.8);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            color: var(--accent-alfa);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: var(--primary-soft);
-            color: var(--primary);
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            margin-bottom: 16px;
+            gap: 0.5rem;
         }
 
-        .page-header h1 {
-            font-size: 32px;
-            line-height: 1.1;
-            margin-bottom: 10px;
+        .btn-reset {
+            background: hsla(355, 75%, 50%, 0.15);
+            color: var(--error);
+            border: 1px solid hsla(355, 75%, 50%, 0.3);
         }
 
-        .page-header p {
-            max-width: 720px;
-            color: var(--muted);
-            line-height: 1.6;
+        .btn-reset:hover {
+            background: var(--error);
+            color: white;
+            box-shadow: 0 0 15px hsla(355, 75%, 50%, 0.5);
         }
 
-        .header-actions {
-            min-width: 320px;
+        .btn-primary-alfa {
+            background: var(--accent-alfa);
+            color: hsl(225, 25%, 8%);
+        }
+        .btn-primary-alfa:hover {
+            box-shadow: 0 0 15px var(--accent-alfa);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary-beta {
+            background: var(--accent-beta);
+            color: white;
+        }
+        .btn-primary-beta:hover {
+            box-shadow: 0 0 15px var(--accent-beta);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: hsla(217, 15%, 25%, 0.5);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover {
+            background: hsla(217, 15%, 35%, 0.8);
+            transform: translateY(-2px);
+        }
+
+        .manager-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            align-items: stretch;
+            gap: 1rem;
         }
-
-        .mode-badge,
-        .summary-card {
-            background: var(--surface-subtle);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 14px 16px;
-        }
-
-        .mode-badge-label,
-        .summary-label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.04em;
+        
+        .manager-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-alfa);
             text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
-
-        .mode-badge-value,
-        .summary-value {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        .header-button-row,
-        .section-actions,
-        .button-row {
+        
+        .manager-controls {
             display: flex;
-            gap: 12px;
             flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
         }
 
-        .overview-grid,
+        .btn-primary-create {
+            background: linear-gradient(135deg, var(--accent-alfa), var(--accent-beta));
+            color: hsl(225, 25%, 8%);
+        }
+        .btn-primary-create:hover {
+            box-shadow: 0 0 15px var(--accent-alfa);
+            transform: translateY(-2px);
+        }
+
+        .btn-delete-agent {
+            background: transparent;
+            color: var(--error);
+            border: 1px solid hsla(355, 75%, 50%, 0.3);
+            padding: 0.3rem 0.6rem;
+            font-size: 0.75rem;
+            border-radius: 6px;
+        }
+        .btn-delete-agent:hover {
+            background: var(--error);
+            color: white;
+            box-shadow: 0 0 10px hsla(355, 75%, 50%, 0.4);
+        }
+
         .main-grid {
             display: grid;
-            gap: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
         }
 
-        .overview-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
-        .main-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .overview-card,
         .agent-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-
-        .overview-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
             border-radius: 20px;
-            padding: 20px;
-        }
-
-        .overview-card h2 {
-            font-size: 14px;
-            color: var(--muted);
-            font-weight: 600;
-            margin-bottom: 12px;
-        }
-
-        .overview-metric {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .overview-copy {
-            color: var(--muted);
-            line-height: 1.5;
-            font-size: 14px;
-        }
-
-        .agent-card {
-            border-radius: 24px;
-            padding: 24px;
+            padding: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 22px;
+            gap: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s ease;
+            position: relative;
         }
 
         .agent-card.alfa {
-            border-top: 4px solid var(--alfa);
+            border: 1px solid var(--border);
+        }
+        .agent-card.alfa:hover {
+            border-color: var(--border-glow-alfa);
+            box-shadow: 0 8px 32px 0 var(--accent-alfa-glow);
         }
 
         .agent-card.beta {
-            border-top: 4px solid var(--beta);
+            border: 1px solid var(--border);
+        }
+        .agent-card.beta:hover {
+            border-color: var(--border-glow-beta);
+            box-shadow: 0 8px 32px 0 var(--accent-beta-glow);
         }
 
         .agent-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 16px;
-            padding-bottom: 18px;
             border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
         }
 
-        .agent-kicker {
-            color: var(--muted);
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            margin-bottom: 8px;
+        .agent-title-area {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
         .agent-name {
-            font-size: 28px;
+            font-size: 1.5rem;
             font-weight: 700;
-            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        .agent-card.alfa .agent-name {
-            color: var(--alfa);
-        }
-
-        .agent-card.beta .agent-name {
-            color: var(--beta);
-        }
+        .agent-card.alfa .agent-name { color: var(--accent-alfa); }
+        .agent-card.beta .agent-name { color: var(--accent-beta); }
 
         .agent-did {
-            font-family: var(--font-mono);
-            font-size: 13px;
-            color: var(--muted);
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+            color: var(--text-muted);
         }
 
         .status-pill {
-            display: inline-flex;
+            display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: var(--surface-subtle);
-            border: 1px solid var(--border);
-            font-size: 14px;
+            gap: 0.4rem;
+            padding: 0.3rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
             font-weight: 600;
-            color: var(--text);
+            background: hsla(223, 20%, 10%, 0.6);
+            border: 1px solid var(--border);
         }
 
         .status-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: var(--muted);
         }
 
         .status-dot.active {
-            background: var(--success);
-            box-shadow: 0 0 0 6px rgba(25, 135, 84, 0.14);
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success);
         }
-
         .status-dot.inactive {
-            background: var(--error);
-            box-shadow: 0 0 0 6px rgba(214, 69, 69, 0.14);
-        }
-
-        .section {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .section-head {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
+            background-color: var(--error);
+            box-shadow: 0 0 8px var(--error);
         }
 
         .section-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .section-description {
-            color: var(--muted);
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        .subtle-panel,
-        .info-grid,
-        .blacklist-box,
-        .logs-box,
-        .attack-box {
-            background: var(--surface-subtle);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-        }
-
-        .subtle-panel {
-            padding: 16px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-            padding: 16px;
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+            background: hsla(223, 20%, 10%, 0.4);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
 
         .info-row {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            min-width: 0;
+            gap: 0.25rem;
         }
 
         .info-label {
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            color: var(--muted);
+            font-size: 0.75rem;
+            color: var(--text-muted);
         }
 
         .info-value {
-            font-family: var(--font-mono);
-            font-size: 13px;
-            color: var(--text);
-            word-break: break-word;
+            font-family: var(--font-code);
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+
+        .setup-actions {
+            display: flex;
+            gap: 1rem;
+            background: hsla(223, 20%, 6%, 0.4);
+            border: 1px dashed var(--border);
+            padding: 1rem;
+            border-radius: 12px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .setup-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
         }
 
         .blacklist-area {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-        }
-
-        .box-head {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--muted);
-            margin-bottom: 10px;
-        }
-
-        .blacklist-box,
-        .logs-box {
-            padding: 14px;
-            min-height: 132px;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
         }
 
         .blacklist-box {
-            max-height: 160px;
+            background: hsla(223, 20%, 10%, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            max-height: 120px;
             overflow-y: auto;
         }
 
-        .blacklist-item,
-        .log-entry {
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .blacklist-item:last-child,
-        .log-entry:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-        }
-
         .blacklist-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+            font-family: var(--font-code);
+            font-size: 0.75rem;
             color: var(--error);
-            font-family: var(--font-mono);
-            font-size: 12px;
+            margin-bottom: 0.25rem;
+            display: flex;
+            justify-content: space-between;
         }
 
         .blacklist-empty {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 90px;
-            color: var(--muted);
-            font-size: 14px;
+            font-size: 0.8rem;
+            color: var(--success);
             text-align: center;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 12px;
+            padding: 0.5rem;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-        }
-
-        .form-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--muted);
+            gap: 0.5rem;
         }
 
         .form-control {
-            width: 100%;
-            border: 1px solid var(--border-strong);
-            background: var(--surface);
-            border-radius: 14px;
-            padding: 13px 14px;
-            color: var(--text);
-            font-size: 14px;
-            font-family: var(--font-sans);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: hsla(223, 20%, 8%, 0.8);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            font-family: var(--font-outfit);
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(31, 94, 255, 0.12);
+            border-color: var(--text-muted);
         }
 
-        .btn {
-            border: 1px solid transparent;
-            border-radius: 14px;
-            padding: 12px 16px;
-            font-size: 14px;
-            font-weight: 600;
-            font-family: var(--font-sans);
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
         }
 
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn-theme {
-            background: var(--surface);
-            color: var(--text);
-            border-color: var(--border-strong);
-        }
-
-        .btn-primary-alfa,
-        .btn-primary-beta {
-            color: #ffffff;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-        }
-
-        .btn-primary-alfa {
-            background: var(--alfa);
-        }
-
-        .btn-primary-beta {
-            background: var(--beta);
-        }
-
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-            border-color: var(--border-strong);
-        }
-
-        .btn-reset {
-            background: #ffffff;
-            color: var(--error);
-            border-color: rgba(214, 69, 69, 0.28);
-        }
-
-        .attack-box {
-            padding: 16px;
-            background: var(--attack-surface);
-            border-color: var(--attack-border);
-            gap: 14px;
+        .action-area {
             display: flex;
             flex-direction: column;
-        }
-
-        .attack-box-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--attack-text);
-        }
-
-        .attack-box-copy {
-            color: var(--attack-text);
-            font-size: 13px;
-            line-height: 1.5;
+            gap: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
         }
 
         .logs-box {
-            height: 240px;
+            background: hsla(223, 20%, 6%, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: var(--font-code);
+            font-size: 0.8rem;
+            height: 180px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
         }
 
         .log-entry {
-            font-size: 13px;
-            line-height: 1.5;
+            border-bottom: 1px solid hsla(217, 15%, 20%, 0.4);
+            padding-bottom: 0.4rem;
         }
 
         .log-time {
-            color: var(--muted);
-            font-family: var(--font-mono);
-            margin-right: 8px;
+            color: var(--text-muted);
+            margin-right: 0.5rem;
         }
 
         .log-status {
-            display: inline-flex;
-            align-items: center;
-            border-radius: 999px;
-            padding: 3px 8px;
-            font-size: 11px;
-            font-weight: 700;
-            margin-right: 8px;
+            font-weight: 600;
+            padding: 0.05rem 0.25rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-right: 0.5rem;
         }
 
-        .log-status.sent {
-            background: var(--primary-soft);
-            color: var(--primary);
-        }
-
-        .log-status.received {
-            background: var(--success-soft);
-            color: var(--success);
-        }
-
-        .log-status.failed {
-            background: var(--error-soft);
-            color: var(--error);
-        }
+        .log-status.sent { background: hsla(180, 80%, 50%, 0.15); color: var(--accent-alfa); }
+        .log-status.received { background: hsla(145, 65%, 45%, 0.15); color: var(--success); }
+        .log-status.failed { background: hsla(355, 75%, 50%, 0.15); color: var(--error); }
 
         .log-body {
-            color: var(--text);
+            color: var(--text-main);
+        }
+
+        .attack-box {
+            border: 1px dashed var(--error);
+            background: hsla(355, 75%, 50%, 0.03);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .attack-box-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--error);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-transform: uppercase;
         }
 
         .toast-container {
             position: fixed;
-            right: 24px;
-            bottom: 24px;
+            bottom: 2rem;
+            right: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 0.75rem;
             z-index: 1000;
         }
 
         .toast {
-            min-width: 280px;
-            max-width: 360px;
-            background: var(--toast-bg);
-            color: var(--toast-text);
-            border-radius: 16px;
-            padding: 14px 16px;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.24);
-            transform: translateY(16px);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transform: translateY(100px);
             opacity: 0;
-            animation: slideIn 0.24s forwards;
+            animation: slideIn 0.3s forwards;
+            border-left: 4px solid var(--text-muted);
         }
 
-        .toast.success {
-            border-left: 4px solid var(--success);
-        }
+        .toast.success { border-left-color: var(--success); color: var(--success); }
+        .toast.error { border-left-color: var(--error); color: var(--error); }
+        .toast.warning { border-left-color: var(--warning); color: var(--warning); }
 
-        .toast.error {
-            border-left: 4px solid var(--error);
+        /* DB Visualizer styles */
+        .db-visualizer-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1rem;
         }
-
-        .toast.warning {
-            border-left: 4px solid #f59e0b;
+        .db-visualizer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .db-visualizer-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-beta);
+        }
+        .db-visualizer-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        @media (min-width: 1200px) {
+            .db-visualizer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .db-visualizer-card {
+            background: hsla(223, 20%, 10%, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .db-visualizer-card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .table-container {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid hsla(217, 15%, 20%, 0.6);
+            border-radius: 8px;
+            background: hsla(223, 20%, 6%, 0.6);
+        }
+        .db-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-outfit);
+            font-size: 0.85rem;
+            text-align: left;
+        }
+        .db-table th {
+            background: hsla(223, 20%, 12%, 0.8);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 0.6rem 0.8rem;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .db-table td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid hsla(217, 15%, 20%, 0.4);
+            color: var(--text-main);
+            word-break: break-all;
+        }
+        .db-table tr:hover {
+            background: hsla(223, 20%, 16%, 0.2);
+        }
+        .table-empty {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem !important;
+            font-style: italic;
         }
 
         @keyframes slideIn {
@@ -612,374 +614,140 @@
                 opacity: 1;
             }
         }
-
-        @media (max-width: 1180px) {
-            .page-header,
-            .main-grid,
-            .overview-grid,
-            .blacklist-area {
-                grid-template-columns: 1fr;
-            }
-
-            .page-header {
-                flex-direction: column;
-            }
-
-            .header-actions {
-                width: 100%;
-                min-width: 0;
-            }
-        }
-
-        @media (max-width: 720px) {
-            body {
-                padding: 18px;
-            }
-
-            .page-header,
-            .agent-card,
-            .overview-card {
-                padding: 18px;
-            }
-
-            .info-grid,
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
-            .section-head {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-        }
     </style>
 </head>
 <body>
-    <div class="app-shell">
-        <header class="page-header">
-            <div>
-                <div class="eyebrow">Painel operacional A2A</div>
-                <h1>Comunicacao segura entre agentes</h1>
-                <p>
-                    Uma visao mais limpa para acompanhar handshake, confianca entre pares,
-                    envio de mensagens e sinais de seguranca em um unico lugar.
-                </p>
+
+    <header>
+        <div class="header-title">
+            <h1>A2A Secure Node Communication Protocol (Pure P2P)</h1>
+            <p>Sovereign Identity Handshake & Key Guard Encryption Shield Sandbox</p>
+        </div>
+        <div class="header-info">
+            <div class="contract-badge" title="Registry Mode">
+                ⚙️ Mode: <span id="contract-addr-text">Pure P2P Handshake Mode</span>
+            </div>
+            <button class="btn btn-reset" onclick="resetSystem()">🔄 Clear Caches & Restart</button>
+        </div>
+    </header>
+
+    <!-- Orchestration and Creation Manager -->
+    <section class="manager-panel">
+        <div class="manager-title">🛠️ Agent Registry & Orchestration</div>
+        <div class="manager-controls">
+            <div class="form-group-horizontal" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
+                <input type="text" id="new-agent-name" class="form-control" placeholder="New agent name (e.g. gamma)" style="flex: 1; max-width: 300px;">
+                <button class="btn btn-primary-create" onclick="createNewAgent()">➕ Spawn Agent & Keys</button>
+            </div>
+            <div class="setup-text">
+                Creating an agent dynamically spins up a new Go Key Guard on a unique port, generating its Ed25519 keypair and setting up its database.
+            </div>
+        </div>
+    </section>
+
+    <!-- Grid of Agents -->
+    <main class="main-grid" id="agents-grid">
+        <!-- Dynamic Agent Cards Rendered Here -->
+    </main>
+
+    <!-- Database and Cache Visualizer -->
+    <section class="db-visualizer-panel">
+        <div class="db-visualizer-header">
+            <div class="db-visualizer-title">📊 Database & Cryptographic Cache Visualizer</div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <label class="info-label" style="margin: 0;">Select Agent:</label>
+                <select id="db-visualizer-select" class="form-control" style="min-width: 150px;" onchange="loadDatabaseView()"></select>
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadDatabaseView()">🔄 Refresh DB View</button>
+            </div>
+        </div>
+        
+        <div class="db-visualizer-grid">
+            <!-- SQLite tx_history -->
+            <div class="db-visualizer-card">
+                <div class="db-visualizer-card-title">💾 SQLite DB: tx_history Table</div>
+                <div class="table-container">
+                    <table class="db-table" id="db-table-tx-history">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Sender</th>
+                                <th>Recipient</th>
+                                <th>Amount</th>
+                                <th>Content</th>
+                                <th>Timestamp</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="7" class="table-empty">Select an agent or refresh to load data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
-            <div class="header-actions">
-                <div class="mode-badge">
-                    <span class="mode-badge-label">Modo atual</span>
-                    <span class="mode-badge-value" id="contract-addr-text">Handshake P2P puro</span>
-                </div>
-                <div class="summary-card">
-                    <span class="summary-label">Resumo rapido</span>
-                    <span class="summary-value" id="summary-status">Carregando status dos agentes</span>
-                </div>
-                <div class="header-button-row">
-                    <button class="btn btn-theme" id="theme-toggle" type="button" onclick="toggleTheme()">Ativar tema escuro</button>
-                    <button class="btn btn-reset" onclick="resetSystem()">Limpar caches e reiniciar</button>
+            <!-- SQLite cognitive_blacklist -->
+            <div class="db-visualizer-card">
+                <div class="db-visualizer-card-title">🚫 SQLite DB: cognitive_blacklist Table</div>
+                <div class="table-container">
+                    <table class="db-table" id="db-table-cognitive-blacklist">
+                        <thead>
+                            <tr>
+                                <th>Blocked DID</th>
+                                <th>Reason</th>
+                                <th>Blocked At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="table-empty">Select an agent or refresh to load data</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </header>
 
-        <section class="overview-grid">
-            <div class="overview-card">
-                <h2>Agentes online</h2>
-                <div class="overview-metric" id="online-count">0/2</div>
-                <div class="overview-copy">Mostra quantos Key Guards estao ativos e respondendo no momento.</div>
+            <!-- Go: peers.json -->
+            <div class="db-visualizer-card">
+                <div class="db-visualizer-card-title">📡 Key Guard Cache: peers.json (Address Book)</div>
+                <div class="table-container">
+                    <table class="db-table" id="db-table-peers-json">
+                        <thead>
+                            <tr>
+                                <th>DID</th>
+                                <th>Public Key</th>
+                                <th>Endpoint</th>
+                                <th>State</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4" class="table-empty">Select an agent or refresh to load data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="overview-card">
-                <h2>Pares bloqueados</h2>
-                <div class="overview-metric" id="blocked-count">0</div>
-                <div class="overview-copy">Soma dos bloqueios registrados nas camadas cognitiva e Key Guard.</div>
+
+            <!-- Go: blacklist.json -->
+            <div class="db-visualizer-card">
+                <div class="db-visualizer-card-title">🔒 Key Guard Cache: blacklist.json</div>
+                <div class="table-container">
+                    <table class="db-table" id="db-table-blacklist-json">
+                        <thead>
+                            <tr>
+                                <th>Blacklisted DID</th>
+                                <th>Expiration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="2" class="table-empty">Select an agent or refresh to load data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="overview-card">
-                <h2>Eventos recentes</h2>
-                <div class="overview-metric" id="events-count">0</div>
-                <div class="overview-copy">Total de transacoes exibidas nos dois paineis de atividade.</div>
-            </div>
-        </section>
-
-        <main class="main-grid">
-            <section class="agent-card alfa" id="agent-alfa-card">
-                <div class="agent-header">
-                    <div>
-                        <div class="agent-kicker">Origem local</div>
-                        <div class="agent-name">Agente Alfa</div>
-                        <div class="agent-did">did:custom:alfa</div>
-                    </div>
-                    <div class="status-pill">
-                        <div class="status-dot" id="alfa-status-dot"></div>
-                        <span id="alfa-status-text">Verificando</span>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="section-head">
-                        <div>
-                            <div class="section-title">Conexao inicial</div>
-                            <div class="section-description">Estabelece relacao direta com o Agente Beta.</div>
-                        </div>
-                        <div class="section-actions">
-                            <button class="btn btn-secondary" onclick="triggerHandshake('alfa', 'http://localhost:8002')">Iniciar handshake</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Resolucao local do parceiro</div>
-                        <div class="section-description">Dados recebidos do catalogo local apos o handshake.</div>
-                    </div>
-                    <div class="info-grid">
-                        <div class="info-row">
-                            <span class="info-label">DID do parceiro</span>
-                            <span class="info-value" id="alfa-resolved-did">Nenhum handshake realizado</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Estado da conexao</span>
-                            <span class="info-value" id="alfa-resolved-revoked">Aguardando conexao</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Chave publica</span>
-                            <span class="info-value" id="alfa-resolved-pubkey">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Endpoint</span>
-                            <span class="info-value" id="alfa-resolved-endpoint">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Listas de bloqueio</div>
-                        <div class="section-description">Visao separada por camada para facilitar diagnostico.</div>
-                    </div>
-                    <div class="blacklist-area">
-                        <div class="subtle-panel">
-                            <div class="box-head">Camada cognitiva</div>
-                            <div class="blacklist-box" id="alfa-cog-blacklist">
-                                <div class="blacklist-empty">Carregando dados</div>
-                            </div>
-                        </div>
-                        <div class="subtle-panel">
-                            <div class="box-head">Key Guard</div>
-                            <div class="blacklist-box" id="alfa-kg-blacklist">
-                                <div class="blacklist-empty">Carregando dados</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Enviar mensagem segura</div>
-                        <div class="section-description">Assina e transmite uma mensagem do Alfa para o Beta.</div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label" for="alfa-to-msg">Mensagem</label>
-                            <input type="text" id="alfa-to-msg" class="form-control" placeholder="Digite o conteudo da mensagem">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="alfa-to-amount">Valor</label>
-                            <input type="number" id="alfa-to-amount" class="form-control" placeholder="Ex.: 50">
-                        </div>
-                    </div>
-                    <div class="button-row">
-                        <button class="btn btn-primary-alfa" onclick="sendMessage('alfa', 'did:custom:beta')">Enviar para Beta</button>
-                    </div>
-                </div>
-
-                <div class="attack-box">
-                    <div class="attack-box-title">Testes de seguranca</div>
-                    <div class="attack-box-copy">Simula situacoes de risco para validar as regras de protecao antes de colocar o fluxo em producao.</div>
-                    <div class="form-group">
-                        <label class="form-label" for="alfa-attack-type">Cenario</label>
-                        <select id="alfa-attack-type" class="form-control">
-                            <option value="rules_amount">Exceder limite de gasto (valor 150)</option>
-                            <option value="security_leak">Solicitar vazamento de chave privada</option>
-                            <option value="prompt_injection">Tentar contornar instrucoes de seguranca</option>
-                        </select>
-                    </div>
-                    <div class="button-row">
-                        <button class="btn btn-reset" onclick="simulateAttack('alfa')">Executar teste</button>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="section-head">
-                        <div>
-                            <div class="section-title">Atividade e caixa de entrada</div>
-                            <div class="section-description">Historico de recebimento e envio mais recente.</div>
-                        </div>
-                        <div class="section-actions">
-                            <button class="btn btn-secondary" onclick="pollInbox('alfa')">Atualizar caixa de entrada</button>
-                        </div>
-                    </div>
-                    <div class="logs-box" id="alfa-logs">
-                        <div class="blacklist-empty">Nenhum evento registrado</div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="agent-card beta" id="agent-beta-card">
-                <div class="agent-header">
-                    <div>
-                        <div class="agent-kicker">Destino local</div>
-                        <div class="agent-name">Agente Beta</div>
-                        <div class="agent-did">did:custom:beta</div>
-                    </div>
-                    <div class="status-pill">
-                        <div class="status-dot" id="beta-status-dot"></div>
-                        <span id="beta-status-text">Verificando</span>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="section-head">
-                        <div>
-                            <div class="section-title">Conexao inicial</div>
-                            <div class="section-description">Estabelece relacao direta com o Agente Alfa.</div>
-                        </div>
-                        <div class="section-actions">
-                            <button class="btn btn-secondary" onclick="triggerHandshake('beta', 'http://localhost:8001')">Iniciar handshake</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Resolucao local do parceiro</div>
-                        <div class="section-description">Dados recebidos do catalogo local apos o handshake.</div>
-                    </div>
-                    <div class="info-grid">
-                        <div class="info-row">
-                            <span class="info-label">DID do parceiro</span>
-                            <span class="info-value" id="beta-resolved-did">Nenhum handshake realizado</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Estado da conexao</span>
-                            <span class="info-value" id="beta-resolved-revoked">Aguardando conexao</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Chave publica</span>
-                            <span class="info-value" id="beta-resolved-pubkey">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Endpoint</span>
-                            <span class="info-value" id="beta-resolved-endpoint">-</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Listas de bloqueio</div>
-                        <div class="section-description">Visao separada por camada para facilitar diagnostico.</div>
-                    </div>
-                    <div class="blacklist-area">
-                        <div class="subtle-panel">
-                            <div class="box-head">Camada cognitiva</div>
-                            <div class="blacklist-box" id="beta-cog-blacklist">
-                                <div class="blacklist-empty">Carregando dados</div>
-                            </div>
-                        </div>
-                        <div class="subtle-panel">
-                            <div class="box-head">Key Guard</div>
-                            <div class="blacklist-box" id="beta-kg-blacklist">
-                                <div class="blacklist-empty">Carregando dados</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div>
-                        <div class="section-title">Enviar mensagem segura</div>
-                        <div class="section-description">Assina e transmite uma mensagem do Beta para o Alfa.</div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label" for="beta-to-msg">Mensagem</label>
-                            <input type="text" id="beta-to-msg" class="form-control" placeholder="Digite o conteudo da mensagem">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="beta-to-amount">Valor</label>
-                            <input type="number" id="beta-to-amount" class="form-control" placeholder="Ex.: 50">
-                        </div>
-                    </div>
-                    <div class="button-row">
-                        <button class="btn btn-primary-beta" onclick="sendMessage('beta', 'did:custom:alfa')">Enviar para Alfa</button>
-                    </div>
-                </div>
-
-                <div class="attack-box">
-                    <div class="attack-box-title">Testes de seguranca</div>
-                    <div class="attack-box-copy">Executa cenarios de abuso conhecidos para confirmar o bloqueio automatico entre as camadas de defesa.</div>
-                    <div class="form-group">
-                        <label class="form-label" for="beta-attack-type">Cenario</label>
-                        <select id="beta-attack-type" class="form-control">
-                            <option value="rules_amount">Exceder limite de gasto (valor 150)</option>
-                            <option value="security_leak">Solicitar vazamento de chave privada</option>
-                            <option value="prompt_injection">Tentar contornar instrucoes de seguranca</option>
-                        </select>
-                    </div>
-                    <div class="button-row">
-                        <button class="btn btn-reset" onclick="simulateAttack('beta')">Executar teste</button>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="section-head">
-                        <div>
-                            <div class="section-title">Atividade e caixa de entrada</div>
-                            <div class="section-description">Historico de recebimento e envio mais recente.</div>
-                        </div>
-                        <div class="section-actions">
-                            <button class="btn btn-secondary" onclick="pollInbox('beta')">Atualizar caixa de entrada</button>
-                        </div>
-                    </div>
-                    <div class="logs-box" id="beta-logs">
-                        <div class="blacklist-empty">Nenhum evento registrado</div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
+        </div>
+    </section>
 
     <div class="toast-container" id="toast-container"></div>
 
     <script>
-        const THEME_STORAGE_KEY = "a2a-dashboard-theme";
-
-        function getPreferredTheme() {
-            const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-            if (savedTheme === "light" || savedTheme === "dark") {
-                return savedTheme;
-            }
-            return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        }
-
-        function updateThemeToggle(theme) {
-            const toggle = document.getElementById("theme-toggle");
-            if (!toggle) {
-                return;
-            }
-            toggle.innerText = theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro";
-        }
-
-        function applyTheme(theme) {
-            document.body.setAttribute("data-theme", theme);
-            localStorage.setItem(THEME_STORAGE_KEY, theme);
-            updateThemeToggle(theme);
-        }
-
-        function toggleTheme() {
-            const currentTheme = document.body.getAttribute("data-theme") || "light";
-            applyTheme(currentTheme === "dark" ? "light" : "dark");
-        }
+        let globalAgents = {};
 
         function showToast(message, type = "success") {
             const container = document.getElementById("toast-container");
@@ -987,70 +755,251 @@
             toast.className = `toast ${type}`;
             toast.innerText = message;
             container.appendChild(toast);
-
+            
             setTimeout(() => {
-                toast.style.animation = "slideIn 0.24s reverse forwards";
-                setTimeout(() => toast.remove(), 240);
+                toast.style.animation = "slideIn 0.3s reverse forwards";
+                setTimeout(() => toast.remove(), 300);
             }, 3500);
         }
 
-        function setOverview(agents) {
-            const values = Object.values(agents);
-            const onlineCount = values.filter(agent => agent.key_guard_online).length;
-            const blockedCount = values.reduce((total, agent) => {
-                return total + agent.cognitive_blacklist.length + Object.keys(agent.key_guard_blacklist).length;
-            }, 0);
-            const eventsCount = values.reduce((total, agent) => total + agent.tx_history.length, 0);
-
-            document.getElementById("online-count").innerText = `${onlineCount}/2`;
-            document.getElementById("blocked-count").innerText = `${blockedCount}`;
-            document.getElementById("events-count").innerText = `${eventsCount}`;
-            document.getElementById("summary-status").innerText =
-                onlineCount === 2 ? "Os dois agentes estao online e respondendo." : "Ha agentes aguardando inicializacao.";
+        function getAgentColors(name) {
+            if (name === 'alfa') {
+                return {
+                    accent: 'hsl(180, 80%, 50%)',
+                    glow: 'hsla(180, 80%, 50%, 0.15)',
+                    borderGlow: 'hsla(180, 80%, 50%, 0.3)',
+                    btnClass: 'btn-primary-alfa'
+                };
+            }
+            if (name === 'beta') {
+                return {
+                    accent: 'hsl(270, 80%, 65%)',
+                    glow: 'hsla(270, 80%, 65%, 0.15)',
+                    borderGlow: 'hsla(270, 80%, 65%, 0.3)',
+                    btnClass: 'btn-primary-beta'
+                };
+            }
+            // Generate dynamically using hash of the name
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const h = Math.abs(hash) % 360;
+            const s = 75;
+            const l = 60;
+            return {
+                accent: `hsl(${h}, ${s}%, ${l}%)`,
+                glow: `hsla(${h}, ${s}%, ${l}%, 0.15)`,
+                borderGlow: `hsla(${h}, ${s}%, ${l}%, 0.3)`,
+                btnClass: `btn-dynamic-${name}`
+            };
         }
 
-        function renderBlacklist(container, items, emptyMessage, mapper) {
-            container.innerHTML = "";
-            if (items.length > 0) {
-                items.forEach(item => {
-                    const div = document.createElement("div");
-                    div.className = "blacklist-item";
-                    div.innerHTML = mapper(item);
-                    container.appendChild(div);
-                });
-            } else {
-                container.innerHTML = `<div class="blacklist-empty">${emptyMessage}</div>`;
-            }
-        }
-
-        function renderLogs(container, txHistory) {
-            container.innerHTML = "";
-            if (txHistory.length === 0) {
-                container.innerHTML = `<div class="blacklist-empty">Nenhum evento registrado</div>`;
-                return;
-            }
-
-            txHistory.forEach(tx => {
-                const timeStr = new Date(tx.timestamp * 1000).toLocaleTimeString();
-                const div = document.createElement("div");
-                div.className = "log-entry";
-
-                let statusClass = "failed";
-                let statusLabel = tx.status;
-
-                if (tx.status === "sent_success") {
-                    statusClass = "sent";
-                    statusLabel = "ENVIADO";
-                } else if (tx.status === "received") {
-                    statusClass = "received";
-                    statusLabel = "RECEBIDO";
-                } else {
-                    statusLabel = String(tx.status || "FALHA").toUpperCase();
+        function injectDynamicStyles(name, colors) {
+            const styleId = `dynamic-style-${name}`;
+            if (document.getElementById(styleId)) return;
+            
+            const styleEl = document.createElement('style');
+            styleEl.id = styleId;
+            styleEl.innerHTML = `
+                .agent-card.${name} {
+                    border: 1px solid var(--border);
                 }
+                .agent-card.${name}:hover {
+                    border-color: ${colors.borderGlow};
+                    box-shadow: 0 8px 32px 0 ${colors.glow};
+                }
+                .agent-card.${name} .agent-name {
+                    color: ${colors.accent};
+                }
+                .btn-dynamic-${name} {
+                    background: ${colors.accent};
+                    color: hsl(225, 25%, 8%);
+                }
+                .btn-dynamic-${name}:hover {
+                    box-shadow: 0 0 15px ${colors.accent};
+                    transform: translateY(-2px);
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
 
-                div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-status ${statusClass}">${statusLabel}</span><span class="log-body">${tx.content} ${tx.amount ? `(${tx.amount} U)` : ""}</span>`;
-                container.appendChild(div);
-            });
+        function ensureAgentCardExists(name) {
+            const cardId = `agent-card-${name}`;
+            let card = document.getElementById(cardId);
+            if (card) return card;
+
+            const colors = getAgentColors(name);
+            injectDynamicStyles(name, colors);
+
+            card = document.createElement("div");
+            card.id = cardId;
+            card.className = `agent-card ${name}`;
+
+            const isCore = (name === 'alfa' || name === 'beta');
+            const deleteButtonHtml = isCore ? '' : `<button class="btn btn-delete-agent" onclick="deleteAgent('${name}')">❌ Delete</button>`;
+
+            card.innerHTML = `
+                <div class="agent-header">
+                    <div class="agent-title-area">
+                        <div class="agent-name">
+                            🤖 Agent ${name.charAt(0).toUpperCase() + name.slice(1)}
+                        </div>
+                        <div class="agent-did">did:custom:${name}</div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        ${deleteButtonHtml}
+                        <div class="status-pill">
+                            <div class="status-dot" id="${name}-status-dot"></div>
+                            <span id="${name}-status-text">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connection/Handshake Setup -->
+                <div class="setup-actions">
+                    <div class="setup-text">
+                        <strong>P2P Link:</strong> Connect to peer:
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <select id="${name}-handshake-target" class="form-control" style="padding: 0.3rem; font-size: 0.8rem; min-width: 120px;"></select>
+                        <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('${name}')">🤝 Handshake</button>
+                    </div>
+                </div>
+
+                <!-- Local peer details -->
+                <div>
+                    <div class="section-title">📡 Peer Address Book (Local Resolution)</div>
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Partner DID resolved:</span>
+                            <span class="info-value" id="${name}-resolved-did">None (Handshake required)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Partner Public Key:</span>
+                            <span class="info-value" id="${name}-resolved-pubkey">...</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Partner Endpoint URL:</span>
+                            <span class="info-value" id="${name}-resolved-endpoint">...</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Partner Connection State:</span>
+                            <span class="info-value" id="${name}-resolved-revoked">...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Blacklist States -->
+                <div>
+                    <div class="section-title">🚫 Blacklist Caches</div>
+                    <div class="blacklist-area">
+                        <div>
+                            <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Cognitive (Python)</div>
+                            <div class="blacklist-box" id="${name}-cog-blacklist">
+                                <div class="blacklist-empty">Loading...</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.8rem; margin-bottom: 0.25rem; color: var(--text-muted);">Key Guard (Go)</div>
+                            <div class="blacklist-box" id="${name}-kg-blacklist">
+                                <div class="blacklist-empty">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message Action -->
+                <div class="action-area">
+                    <div class="section-title">✉️ Send Secure P2P Message</div>
+                    <div class="form-row" style="margin-bottom: 0.5rem;">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="info-label">Recipient:</label>
+                            <select id="${name}-to-recipient" class="form-control"></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <input type="text" id="${name}-to-msg" class="form-control" placeholder="Message content...">
+                        </div>
+                        <div class="form-group">
+                            <input type="number" id="${name}-to-amount" class="form-control" placeholder="Amount">
+                        </div>
+                    </div>
+                    <button class="btn ${colors.btnClass}" onclick="sendMessage('${name}')">🔒 Sign & Transmit</button>
+                </div>
+
+                <!-- Anomaly Attacks -->
+                <div class="attack-box">
+                    <div class="attack-box-title">⚡ Attack Simulation Panel</div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column: span 2;">
+                            <select id="${name}-attack-type" class="form-control">
+                                <option value="rules_amount">Exceed Spend Limit (Amount = 150)</option>
+                                <option value="security_leak">Key Leak Attempt ("reveal private_key")</option>
+                                <option value="prompt_injection">Prompt Injection ("ignore previous instructions")</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-reset" onclick="simulateAttack('${name}')">💥 Inject Anomaly Attack</button>
+                </div>
+
+                <!-- Inbox Logs -->
+                <div>
+                    <div class="section-title">
+                        📰 Inbox & Transaction Logs
+                        <button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: ${colors.accent}; color: hsl(225, 25%, 8%);" onclick="pollInbox('${name}')">📥 Poll Inbox</button>
+                    </div>
+                    <div class="logs-box" id="${name}-logs">
+                        <div class="blacklist-empty">No transactions logged yet</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById("agents-grid").appendChild(card);
+            return card;
+        }
+
+        function updateSelectOptions(name, activeNames) {
+            const handshakeSelect = document.getElementById(`${name}-handshake-target`);
+            const recipientSelect = document.getElementById(`${name}-to-recipient`);
+            
+            if (handshakeSelect) {
+                const currentHandshakeVal = handshakeSelect.value;
+                handshakeSelect.innerHTML = "";
+                
+                activeNames.forEach(targetName => {
+                    if (targetName !== name) {
+                        const opt = document.createElement("option");
+                        const targetPort = globalAgents[targetName].key_guard_port;
+                        opt.value = `http://localhost:${targetPort}`;
+                        opt.innerText = `${targetName.toUpperCase()} (http://localhost:${targetPort})`;
+                        handshakeSelect.appendChild(opt);
+                    }
+                });
+                
+                if (currentHandshakeVal) {
+                    handshakeSelect.value = currentHandshakeVal;
+                }
+            }
+
+            if (recipientSelect) {
+                const currentRecipientVal = recipientSelect.value;
+                recipientSelect.innerHTML = "";
+                
+                activeNames.forEach(targetName => {
+                    if (targetName !== name) {
+                        const opt = document.createElement("option");
+                        opt.value = `did:custom:${targetName}`;
+                        opt.innerText = `did:custom:${targetName}`;
+                        recipientSelect.appendChild(opt);
+                    }
+                });
+                
+                if (currentRecipientVal) {
+                    recipientSelect.value = currentRecipientVal;
+                }
+            }
         }
 
         async function updateStatus() {
@@ -1059,69 +1008,196 @@
                 const data = await response.json();
 
                 document.getElementById("contract-addr-text").innerText = data.contract_address;
-                setOverview(data.agents);
 
-                for (const name of ["alfa", "beta"]) {
+                globalAgents = data.agents;
+                const activeNames = Object.keys(data.agents);
+
+                // 1. Maintain visualizer dropdown
+                const dbSelect = document.getElementById("db-visualizer-select");
+                const currentDbSelectVal = dbSelect.value;
+                dbSelect.innerHTML = "";
+                activeNames.forEach(name => {
+                    const opt = document.createElement("option");
+                    opt.value = name;
+                    opt.innerText = name.toUpperCase();
+                    dbSelect.appendChild(opt);
+                });
+                if (activeNames.includes(currentDbSelectVal)) {
+                    dbSelect.value = currentDbSelectVal;
+                } else if (activeNames.length > 0) {
+                    dbSelect.value = activeNames[0];
+                    loadDatabaseView(); // load for new first item
+                }
+
+                // 2. Remove obsolete cards
+                const currentCards = document.querySelectorAll(".agent-card");
+                currentCards.forEach(card => {
+                    const cardName = card.id.replace("agent-card-", "");
+                    if (!activeNames.includes(cardName)) {
+                        card.remove();
+                    }
+                });
+
+                // 3. Update existing or new cards
+                activeNames.forEach(name => {
                     const agent = data.agents[name];
+                    ensureAgentCardExists(name);
+                    updateSelectOptions(name, activeNames);
+
                     const dot = document.getElementById(`${name}-status-dot`);
                     const text = document.getElementById(`${name}-status-text`);
 
+                    // Port/Online status
                     if (agent.key_guard_online) {
                         dot.className = "status-dot active";
-                        text.innerText = "Online";
+                        text.innerText = `Online (Port ${agent.key_guard_port})`;
                     } else {
                         dot.className = "status-dot inactive";
                         text.innerText = "Offline";
                     }
 
-                    const resolvedDid = document.getElementById(`${name}-resolved-did`);
-                    const resolvedPub = document.getElementById(`${name}-resolved-pubkey`);
-                    const resolvedEndpoint = document.getElementById(`${name}-resolved-endpoint`);
-                    const resolvedState = document.getElementById(`${name}-resolved-revoked`);
-
-                    if (agent.resolved_partner && !agent.resolved_partner.error) {
-                        resolvedDid.innerText = agent.resolved_partner.did || "Nao informado";
-                        resolvedPub.innerText = agent.resolved_partner.public_key
-                            ? `${agent.resolved_partner.public_key.slice(0, 25)}...`
-                            : "Nao informado";
-                        resolvedEndpoint.innerText = agent.resolved_partner.endpoint || "Nao informado";
-                        resolvedState.innerText = agent.resolved_partner.revoked
-                            ? "Par revogado localmente"
-                            : "Par ativo e verificado";
-                        resolvedState.style.color = agent.resolved_partner.revoked ? "var(--error)" : "var(--success)";
+                    // Local peer resolve status
+                    const r_did = document.getElementById(`${name}-resolved-did`);
+                    const r_pub = document.getElementById(`${name}-resolved-pubkey`);
+                    const r_end = document.getElementById(`${name}-resolved-endpoint`);
+                    const r_rev = document.getElementById(`${name}-resolved-revoked`);
+                    
+                    // Show first resolved peer in detail area if any exist
+                    const peerKeys = Object.keys(agent.peers_store || {});
+                    if (peerKeys.length > 0) {
+                        const firstPeer = agent.peers_store[peerKeys[0]];
+                        r_did.innerText = firstPeer.did || "None";
+                        r_pub.innerText = firstPeer.public_key ? firstPeer.public_key.slice(0, 25) + "..." : "None";
+                        r_end.innerText = firstPeer.endpoint || "None";
+                        r_rev.innerText = firstPeer.revoked ? "🔴 Peer Revoked Locally" : "🟢 Peer Active & Verified";
+                        r_rev.style.color = firstPeer.revoked ? "var(--error)" : "var(--success)";
                     } else {
-                        resolvedDid.innerText = "Nenhum handshake realizado";
-                        resolvedPub.innerText = "-";
-                        resolvedEndpoint.innerText = "-";
-                        resolvedState.innerText = "Aguardando conexao";
-                        resolvedState.style.color = "var(--muted)";
+                        r_did.innerText = "None (Handshake required)";
+                        r_pub.innerText = "...";
+                        r_end.innerText = "...";
+                        r_rev.innerText = "Disconnected";
+                        r_rev.style.color = "var(--text-muted)";
                     }
 
-                    const cognitiveBox = document.getElementById(`${name}-cog-blacklist`);
-                    renderBlacklist(
-                        cognitiveBox,
-                        agent.cognitive_blacklist,
-                        "Nenhum par bloqueado",
-                        entry => `<span>Bloqueado: ${entry.did}</span><span style="color: var(--muted);">Motivo: ${entry.reason}</span>`
-                    );
+                    // Blacklist - Cognitive
+                    const cogBLBox = document.getElementById(`${name}-cog-blacklist`);
+                    cogBLBox.innerHTML = "";
+                    if (agent.cognitive_blacklist && agent.cognitive_blacklist.length > 0) {
+                        agent.cognitive_blacklist.forEach(entry => {
+                            const div = document.createElement("div");
+                            div.className = "blacklist-item";
+                            div.innerHTML = `<span>Blocked: ${entry.did}</span> <span style="font-size:0.65rem; color:var(--text-muted)">Reason: ${entry.reason.slice(0,15)}...</span>`;
+                            cogBLBox.appendChild(div);
+                        });
+                    } else {
+                        cogBLBox.innerHTML = `<div class="blacklist-empty">🟢 No blocked peers</div>`;
+                    }
 
-                    const keyGuardBox = document.getElementById(`${name}-kg-blacklist`);
-                    renderBlacklist(
-                        keyGuardBox,
-                        Object.keys(agent.key_guard_blacklist),
-                        "Nenhum par bloqueado",
-                        did => `<span>Bloqueado: ${did}</span>`
-                    );
+                    // Blacklist - Key Guard
+                    const kgBLBox = document.getElementById(`${name}-kg-blacklist`);
+                    kgBLBox.innerHTML = "";
+                    const kgList = Object.keys(agent.key_guard_blacklist || {});
+                    if (kgList.length > 0) {
+                        kgList.forEach(did => {
+                            const div = document.createElement("div");
+                            div.className = "blacklist-item";
+                            div.innerHTML = `<span>Blocked: ${did}</span>`;
+                            kgBLBox.appendChild(div);
+                        });
+                    } else {
+                        kgBLBox.innerHTML = `<div class="blacklist-empty">🟢 No blocked peers</div>`;
+                    }
 
-                    renderLogs(document.getElementById(`${name}-logs`), agent.tx_history);
-                }
+                    // Logs and transaction history
+                    const logBox = document.getElementById(`${name}-logs`);
+                    logBox.innerHTML = "";
+                    if (agent.tx_history && agent.tx_history.length > 0) {
+                        agent.tx_history.forEach(tx => {
+                            const timeStr = new Date(tx.timestamp * 1000).toLocaleTimeString();
+                            const div = document.createElement("div");
+                            div.className = "log-entry";
+                            
+                            let statusClass = "failed";
+                            let statusLabel = tx.status;
+                            if (tx.status === "sent_success") {
+                                statusClass = "sent";
+                                statusLabel = "SENT";
+                            } else if (tx.status === "received") {
+                                statusClass = "received";
+                                statusLabel = "RCVD";
+                            }
+                            
+                            div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-status ${statusClass}">${statusLabel}</span><span class="log-body">${tx.content} ${tx.amount ? `(${tx.amount} U)` : ''}</span>`;
+                            logBox.appendChild(div);
+                        });
+                    } else {
+                        logBox.innerHTML = `<div class="blacklist-empty">No transactions logged yet</div>`;
+                    }
+                });
             } catch (err) {
-                console.error("Falha ao consultar status da API:", err);
+                console.error("Failed to query API status:", err);
             }
         }
 
-        async function triggerHandshake(sender, target_endpoint) {
-            showToast(`Iniciando handshake de ${sender} para ${target_endpoint}`, "warning");
+        async function createNewAgent() {
+            const input = document.getElementById("new-agent-name");
+            const name = input.value.trim().toLowerCase();
+            if (!name) {
+                showToast("Please enter a valid agent name", "warning");
+                return;
+            }
+            showToast(`Spawning agent ${name} (generating Ed25519 keys)...`, "warning");
+            
+            try {
+                const response = await fetch("/api/agents/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const res = await response.json();
+                if (res.status === "created") {
+                    showToast(`Agent ${res.name} spawned on port ${res.port}!`, "success");
+                    input.value = "";
+                    updateStatus();
+                } else {
+                    showToast(`Failed: ${res.error}`, "error");
+                }
+            } catch (err) {
+                showToast("Failed to connect to agent registry API", "error");
+            }
+        }
+
+        async function deleteAgent(name) {
+            if (!confirm(`Are you sure you want to delete Agent ${name}? This terminates its process and deletes its keys.`)) {
+                return;
+            }
+            showToast(`Deleting agent ${name}...`, "warning");
+            
+            try {
+                const response = await fetch("/api/agents/remove", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const res = await response.json();
+                if (res.status === "removed") {
+                    showToast(`Agent ${name} and keys removed successfully`, "success");
+                    updateStatus();
+                } else {
+                    showToast(`Failed: ${res.error}`, "error");
+                }
+            } catch (err) {
+                showToast("Failed to connect to agent registry API", "error");
+            }
+        }
+
+        async function triggerHandshake(sender) {
+            const target_endpoint = document.getElementById(`${sender}-handshake-target`).value;
+            if (!target_endpoint) {
+                showToast("No target endpoint selected", "warning");
+                return;
+            }
+            showToast(`Initiating handshake from ${sender} to ${target_endpoint}...`, "warning");
             try {
                 const response = await fetch("/api/handshake", {
                     method: "POST",
@@ -1130,22 +1206,28 @@
                 });
                 const res = await response.json();
                 if (res.status === "handshake_success") {
-                    showToast(`Handshake concluido com ${res.peer}`, "success");
+                    showToast(`Handshake complete! Connected with ${res.peer}`, "success");
                     updateStatus();
+                    loadDatabaseView();
                 } else {
-                    showToast(`Falha no handshake: ${res.error}`, "error");
+                    showToast(`Failed: ${res.error}`, "error");
                 }
             } catch (err) {
-                showToast("Falha ao conectar ao endpoint de handshake", "error");
+                showToast("Failed to connect to handshake endpoint", "error");
             }
         }
 
-        async function sendMessage(sender, recipient) {
+        async function sendMessage(sender) {
+            const recipient = document.getElementById(`${sender}-to-recipient`).value;
             const content = document.getElementById(`${sender}-to-msg`).value;
             const amount = document.getElementById(`${sender}-to-amount`).value;
 
+            if (!recipient) {
+                showToast("No recipient available", "warning");
+                return;
+            }
             if (!content) {
-                showToast("Preencha a mensagem antes de enviar", "warning");
+                showToast("Please write a message content", "warning");
                 return;
             }
 
@@ -1156,24 +1238,29 @@
                     body: JSON.stringify({ sender, recipient, content, amount })
                 });
                 const res = await response.json();
-
+                
                 if (res.status === "sent") {
-                    showToast(`Mensagem enviada com sucesso para ${recipient}`, "success");
+                    showToast(`Message signed & P2P delivered to ${recipient}!`, "success");
                     document.getElementById(`${sender}-to-msg`).value = "";
                     document.getElementById(`${sender}-to-amount`).value = "";
                 } else {
-                    showToast(`Envio bloqueado: ${res.reason}`, "error");
+                    showToast(`Blocked: ${res.reason}`, "error");
                 }
                 updateStatus();
+                loadDatabaseView();
             } catch (err) {
-                showToast("Falha ao conectar ao servidor", "error");
+                showToast("Failed to connect to backend", "error");
             }
         }
 
         async function simulateAttack(sender) {
+            const recipient = document.getElementById(`${sender}-to-recipient`).value;
+            if (!recipient) {
+                showToast("No recipient selected to attack", "warning");
+                return;
+            }
             const attackType = document.getElementById(`${sender}-attack-type`).value;
-            const recipient = sender === "alfa" ? "did:custom:beta" : "did:custom:alfa";
-
+            
             let content = "";
             let amount = null;
 
@@ -1193,17 +1280,18 @@
                     body: JSON.stringify({ sender, recipient, content, amount })
                 });
                 const res = await response.json();
-
+                
                 if (res.status === "blocked") {
-                    showToast(`Ataque bloqueado: ${res.reason}`, "success");
+                    showToast(`Attack Blocked: ${res.reason}`, "success");
                 } else if (res.status === "failed") {
-                    showToast(`Key Guard bloqueou o ataque: ${res.reason}`, "success");
+                    showToast(`Key Guard Blocked Attack: ${res.reason}`, "success");
                 } else {
-                    showToast(`Atencao: teste passou com status ${res.status}`, "warning");
+                    showToast(`Warning: Attack went through! Status: ${res.status}`, "warning");
                 }
                 updateStatus();
+                loadDatabaseView();
             } catch (err) {
-                showToast("Erro de conexao durante o teste", "error");
+                showToast("Connection error", "error");
             }
         }
 
@@ -1216,35 +1304,145 @@
                 });
                 const res = await response.json();
                 if (res.polled_messages && res.polled_messages.length > 0) {
-                    showToast(`${res.polled_messages.length} mensagens verificadas`, "success");
+                    showToast(`Successfully parsed ${res.polled_messages.length} verified messages!`, "success");
                 } else {
-                    showToast("Nenhuma mensagem nova encontrada", "warning");
+                    showToast("No new messages found", "warning");
                 }
                 updateStatus();
+                loadDatabaseView();
             } catch (err) {
-                showToast("Falha ao verificar caixa de entrada", "error");
+                showToast("Failed to poll inbox", "error");
+            }
+        }
+
+        async function loadDatabaseView() {
+            const name = document.getElementById("db-visualizer-select").value;
+            if (!name) return;
+
+            try {
+                const response = await fetch(`/api/db_view?name=${name}`);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                // 1. tx_history table
+                const txHistoryBody = document.querySelector("#db-table-tx-history tbody");
+                txHistoryBody.innerHTML = "";
+                if (data.tx_history && data.tx_history.length > 0) {
+                    data.tx_history.forEach(tx => {
+                        const tr = document.createElement("tr");
+                        const timeStr = new Date(tx.timestamp * 1000).toLocaleString();
+                        
+                        let statusBadge = `<span class="log-status failed">${tx.status}</span>`;
+                        if (tx.status === "sent_success") {
+                            statusBadge = `<span class="log-status sent">SENT</span>`;
+                        } else if (tx.status === "received") {
+                            statusBadge = `<span class="log-status received">RCVD</span>`;
+                        }
+
+                        tr.innerHTML = `
+                            <td><code>${tx.id}</code></td>
+                            <td><code>${tx.sender}</code></td>
+                            <td><code>${tx.recipient}</code></td>
+                            <td>${tx.amount ? `${tx.amount} U` : '0'}</td>
+                            <td>${tx.content}</td>
+                            <td>${timeStr}</td>
+                            <td>${statusBadge}</td>
+                        `;
+                        txHistoryBody.appendChild(tr);
+                    });
+                } else {
+                    txHistoryBody.innerHTML = `<tr><td colspan="7" class="table-empty">No transactions found in SQLite</td></tr>`;
+                }
+
+                // 2. cognitive_blacklist table
+                const cogBLBody = document.querySelector("#db-table-cognitive-blacklist tbody");
+                cogBLBody.innerHTML = "";
+                if (data.cognitive_blacklist && data.cognitive_blacklist.length > 0) {
+                    data.cognitive_blacklist.forEach(entry => {
+                        const tr = document.createElement("tr");
+                        const timeStr = new Date(entry.blocked_at * 1000).toLocaleString();
+                        tr.innerHTML = `
+                            <td><code>${entry.did}</code></td>
+                            <td>${entry.reason}</td>
+                            <td>${timeStr}</td>
+                        `;
+                        cogBLBody.appendChild(tr);
+                    });
+                } else {
+                    cogBLBody.innerHTML = `<tr><td colspan="3" class="table-empty">No blacklisted peers in SQLite</td></tr>`;
+                }
+
+                // 3. peers.json cache
+                const peersBody = document.querySelector("#db-table-peers-json tbody");
+                peersBody.innerHTML = "";
+                const peersKeys = Object.keys(data.peers_store || {});
+                if (peersKeys.length > 0) {
+                    peersKeys.forEach(key => {
+                        const p = data.peers_store[key];
+                        const tr = document.createElement("tr");
+                        const stateText = p.revoked ? "🔴 Revoked" : "🟢 Active";
+                        const stateStyle = p.revoked ? "color: var(--error)" : "color: var(--success)";
+                        tr.innerHTML = `
+                            <td><code>${p.did}</code></td>
+                            <td title="${p.public_key}"><code>${p.public_key.slice(0, 16)}...</code></td>
+                            <td><code>${p.endpoint}</code></td>
+                            <td style="${stateStyle}; font-weight: 600;">${stateText}</td>
+                        `;
+                        peersBody.appendChild(tr);
+                    });
+                } else {
+                    peersBody.innerHTML = `<tr><td colspan="4" class="table-empty">No peers in Key Guard address book</td></tr>`;
+                }
+
+                // 4. blacklist.json cache
+                const kgBLBody = document.querySelector("#db-table-blacklist-json tbody");
+                kgBLBody.innerHTML = "";
+                const kgBLKeys = Object.keys(data.key_guard_blacklist || {});
+                if (kgBLKeys.length > 0) {
+                    kgBLKeys.forEach(did => {
+                        const exp = data.key_guard_blacklist[did];
+                        const tr = document.createElement("tr");
+                        const expStr = exp ? new Date(exp).toLocaleString() : "Active";
+                        tr.innerHTML = `
+                            <td><code>${did}</code></td>
+                            <td><code>${expStr}</code></td>
+                        `;
+                        kgBLBody.appendChild(tr);
+                    });
+                } else {
+                    kgBLBody.innerHTML = `<tr><td colspan="2" class="table-empty">No peers blacklisted in Key Guard Cache</td></tr>`;
+                }
+
+            } catch (err) {
+                console.error("Error loading DB view:", err);
             }
         }
 
         async function resetSystem() {
-            showToast("Reiniciando caches e servicos locais", "warning");
+            showToast("Resetting system state (cleaning data caches)...", "warning");
             try {
                 const response = await fetch("/api/reset", { method: "POST" });
                 const res = await response.json();
                 if (res.status === "reset_success") {
-                    showToast("Sistema reiniciado com sucesso", "success");
+                    showToast("System reset complete. Key Guards restarted!", "success");
                     updateStatus();
+                    setTimeout(loadDatabaseView, 1000);
                 } else {
-                    showToast(`Falha no reset: ${res.error}`, "error");
+                    showToast(`Failed: ${res.error}`, "error");
                 }
             } catch (err) {
-                showToast("Falha ao conectar ao endpoint de reset", "error");
+                showToast("Failed to connect to reset endpoint", "error");
             }
         }
 
-        applyTheme(getPreferredTheme());
+        // Setup polling
         setInterval(updateStatus, 2000);
-        updateStatus();
+        
+        // Initial setup load
+        (async () => {
+            await updateStatus();
+            setTimeout(loadDatabaseView, 500);
+        })();
     </script>
 </body>
 </html>

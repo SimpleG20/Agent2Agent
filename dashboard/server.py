@@ -6,6 +6,7 @@ import sqlite3
 import socket
 import subprocess
 import requests
+import shutil
 from flask import Flask, jsonify, request, render_template
 
 # Adjust Python path to include cognitive layer
@@ -17,15 +18,32 @@ app = Flask(__name__)
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(PROJECT_DIR, "data_dashboard")
 
-# Maintain sub-processes
-subprocesses_dict = {
-    "key_guard_alfa": None,
-    "key_guard_beta": None
-}
+# Maintain subprocesses dynamically
+subprocesses_dict = {}
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
+
+def load_agents_registry():
+    path = os.path.join(DATA_DIR, "agents.json")
+    if not os.path.exists(path):
+        default_registry = {"alfa": 8001, "beta": 8002}
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(default_registry, f, indent=4)
+        return default_registry
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"alfa": 8001, "beta": 8002}
+
+def save_agents_registry(registry):
+    path = os.path.join(DATA_DIR, "agents.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(registry, f, indent=4)
 
 def get_db_data(db_path, query, params=()):
     if not os.path.exists(db_path):
@@ -52,33 +70,27 @@ def get_json_file(file_path):
 
 def start_key_guards():
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
+    registry = load_agents_registry()
     
-    # Alfa
-    if not is_port_in_use(8001) and subprocesses_dict["key_guard_alfa"] is None:
-        print("Starting Alfa Key Guard...")
-        alfa_log = open(os.path.join(DATA_DIR, "alfa_key_guard.log"), "w")
-        subprocesses_dict["key_guard_alfa"] = subprocess.Popen([
-            key_guard_bin,
-            "-port", "8001",
-            "-name", "alfa",
-            "-endpoint", "http://localhost:8001",
-            "-datadir", DATA_DIR
-        ], stdout=alfa_log, stderr=alfa_log, text=True)
+    started_any = False
+    for name, port in registry.items():
+        proc_key = f"key_guard_{name}"
+        if not is_port_in_use(port) and subprocesses_dict.get(proc_key) is None:
+            print(f"Starting {name} Key Guard on port {port}...")
+            os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
+            log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
+            subprocesses_dict[proc_key] = subprocess.Popen([
+                key_guard_bin,
+                "-port", str(port),
+                "-name", name,
+                "-endpoint", f"http://localhost:{port}",
+                "-datadir", DATA_DIR
+            ], stdout=log_file, stderr=log_file, text=True)
+            started_any = True
 
-    # Beta
-    if not is_port_in_use(8002) and subprocesses_dict["key_guard_beta"] is None:
-        print("Starting Beta Key Guard...")
-        beta_log = open(os.path.join(DATA_DIR, "beta_key_guard.log"), "w")
-        subprocesses_dict["key_guard_beta"] = subprocess.Popen([
-            key_guard_bin,
-            "-port", "8002",
-            "-name", "beta",
-            "-endpoint", "http://localhost:8002",
-            "-datadir", DATA_DIR
-        ], stdout=beta_log, stderr=beta_log, text=True)
-
-    # Allow startup
-    time.sleep(2)
+    if started_any:
+        # Allow startup
+        time.sleep(2)
     return True
 
 @app.route("/")
@@ -90,30 +102,19 @@ def status():
     # 1. Start key guards if they aren't running
     start_key_guards()
 
-    # 2. Get status of both agents
+    registry = load_agents_registry()
     agents_status = {}
-    for name, port in [("alfa", 8001), ("beta", 8002)]:
+    
+    for name, port in registry.items():
         # Check active status of Key Guard
         online = is_port_in_use(port)
 
-        # Resolve details via local key guard if online
-        local_peer_info = {}
-        if online:
-            try:
-                # Query local Key Guard resolve endpoint (check target did)
-                target_did = "did:custom:beta" if name == "alfa" else "did:custom:alfa"
-                r = requests.get(f"http://localhost:{port}/resolve?did={target_did}", timeout=1)
-                if r.status_code == 200:
-                    local_peer_info = r.json()
-            except Exception as e:
-                local_peer_info = {"error": str(e)}
-
-        # Paths to caches
+        # Retrieve direct info of peers resolved in peers_store
         db_path = os.path.join(DATA_DIR, name, "cognitive_store.db")
         blacklist_path = os.path.join(DATA_DIR, name, "blacklist.json")
         peers_path = os.path.join(DATA_DIR, name, "peers.json")
 
-        # Query databases
+        # Query local state
         tx_history = get_db_data(db_path, "SELECT * FROM tx_history ORDER BY timestamp DESC LIMIT 15")
         cognitive_blacklist = get_db_data(db_path, "SELECT * FROM cognitive_blacklist")
         key_guard_blacklist = get_json_file(blacklist_path)
@@ -124,7 +125,6 @@ def status():
             "did": f"did:custom:{name}",
             "key_guard_online": online,
             "key_guard_port": port,
-            "resolved_partner": local_peer_info,
             "cognitive_blacklist": cognitive_blacklist,
             "key_guard_blacklist": key_guard_blacklist,
             "peers_store": peers_store,
@@ -153,7 +153,11 @@ def send_message():
         except ValueError:
             amount = None
 
-    port = 8001 if sender == "alfa" else 8002
+    registry = load_agents_registry()
+    if sender not in registry:
+        return jsonify({"error": f"Sender {sender} not found"}), 404
+        
+    port = registry[sender]
     agent = CognitiveAgent(sender, f"http://localhost:{port}", data_dir=DATA_DIR)
     
     res = agent.tool_send_message(to_did=recipient, content=content, amount=amount)
@@ -166,7 +170,11 @@ def poll_inbox():
     if not name:
         return jsonify({"error": "Missing agent name"}), 400
 
-    port = 8001 if name == "alfa" else 8002
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+        
+    port = registry[name]
     agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
     
     messages = agent.tool_read_inbox()
@@ -181,7 +189,11 @@ def trigger_handshake():
     if not sender or not target_endpoint:
         return jsonify({"error": "Missing sender or target_endpoint"}), 400
 
-    port = 8001 if sender == "alfa" else 8002
+    registry = load_agents_registry()
+    if sender not in registry:
+        return jsonify({"error": f"Sender {sender} not found"}), 404
+
+    port = registry[sender]
     try:
         r = requests.post(f"http://localhost:{port}/handshake-peer", json={"target_endpoint": target_endpoint}, timeout=5)
         if r.status_code == 200:
@@ -191,14 +203,152 @@ def trigger_handshake():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/agents/create", methods=["POST"])
+def create_agent():
+    data = request.json or {}
+    name = data.get("name", "").strip().lower()
+    if not name:
+        return jsonify({"error": "Agent name is required"}), 400
+    
+    if not name.isalnum():
+        return jsonify({"error": "Agent name must be alphanumeric"}), 400
+
+    registry = load_agents_registry()
+    if name in registry:
+        return jsonify({"error": f"Agent {name} already exists"}), 400
+
+    # Allocate port dynamically (scanning starting from 8003)
+    port = 8003
+    while True:
+        if port not in registry.values() and not is_port_in_use(port):
+            break
+        port += 1
+
+    registry[name] = port
+    save_agents_registry(registry)
+
+    # Spawn process
+    key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
+    proc_key = f"key_guard_{name}"
+    
+    os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
+    log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
+    subprocesses_dict[proc_key] = subprocess.Popen([
+        key_guard_bin,
+        "-port", str(port),
+        "-name", name,
+        "-endpoint", f"http://localhost:{port}",
+        "-datadir", DATA_DIR
+    ], stdout=log_file, stderr=log_file, text=True)
+    
+    # Wait for initialization
+    time.sleep(2)
+
+    # Verify startup
+    if subprocesses_dict[proc_key].poll() is not None:
+        del registry[name]
+        save_agents_registry(registry)
+        if proc_key in subprocesses_dict:
+            del subprocesses_dict[proc_key]
+        return jsonify({"error": f"Failed to start Key Guard for agent {name}. Check logs."}), 500
+
+    return jsonify({"status": "created", "name": name, "port": port})
+
+@app.route("/api/agents/remove", methods=["POST"])
+def remove_agent():
+    data = request.json or {}
+    name = data.get("name", "").strip().lower()
+    if not name:
+        return jsonify({"error": "Agent name is required"}), 400
+    
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} does not exist"}), 404
+
+    # Terminate process
+    proc_key = f"key_guard_{name}"
+    proc = subprocesses_dict.get(proc_key)
+    if proc:
+        proc.terminate()
+        proc.wait()
+        del subprocesses_dict[proc_key]
+
+    # Remove from registry
+    del registry[name]
+    save_agents_registry(registry)
+
+    # Delete files
+    agent_dir = os.path.join(DATA_DIR, name)
+    if os.path.exists(agent_dir):
+        try:
+            shutil.rmtree(agent_dir)
+        except Exception:
+            time.sleep(0.5)
+            try:
+                shutil.rmtree(agent_dir)
+            except Exception:
+                pass
+
+    # Clean log file
+    log_path = os.path.join(DATA_DIR, f"{name}_key_guard.log")
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+
+    return jsonify({"status": "removed", "name": name})
+
+@app.route("/api/db_view")
+def db_view():
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"error": "Missing name parameter"}), 400
+
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+
+    db_path = os.path.join(DATA_DIR, name, "cognitive_store.db")
+    blacklist_path = os.path.join(DATA_DIR, name, "blacklist.json")
+    peers_path = os.path.join(DATA_DIR, name, "peers.json")
+    pub_key_path = os.path.join(DATA_DIR, name, "keys", "public.key")
+
+    tx_history = get_db_data(db_path, "SELECT * FROM tx_history ORDER BY timestamp DESC")
+    cognitive_blacklist = get_db_data(db_path, "SELECT * FROM cognitive_blacklist ORDER BY blocked_at DESC")
+    
+    key_guard_blacklist = get_json_file(blacklist_path)
+    peers_store = get_json_file(peers_path)
+
+    pub_key = "N/A"
+    if os.path.exists(pub_key_path):
+        try:
+            with open(pub_key_path, "r") as f:
+                pub_key = f.read().strip()
+        except Exception:
+            pass
+
+    return jsonify({
+        "name": name,
+        "port": registry[name],
+        "public_key": pub_key,
+        "tx_history": tx_history,
+        "cognitive_blacklist": cognitive_blacklist,
+        "key_guard_blacklist": key_guard_blacklist,
+        "peers_store": peers_store
+    })
+
 @app.route("/api/reset", methods=["POST"])
 def reset_system():
-    # Kill Key Guards
-    for key in subprocesses_dict:
+    # Kill all running Key Guards
+    for key in list(subprocesses_dict.keys()):
         proc = subprocesses_dict[key]
         if proc:
-            proc.terminate()
-            proc.wait()
+            try:
+                proc.terminate()
+                proc.wait()
+            except Exception:
+                pass
             subprocesses_dict[key] = None
 
     # Force kill any hanging key-guard-bin
@@ -207,13 +357,20 @@ def reset_system():
     except Exception:
         pass
 
-    # Clean data dir
-    import shutil
-    if os.path.exists(DATA_DIR):
-        shutil.rmtree(DATA_DIR)
-    os.makedirs(DATA_DIR, exist_ok=True)
+    # Reset registry to default alfa/beta
+    default_registry = {"alfa": 8001, "beta": 8002}
+    save_agents_registry(default_registry)
 
-    # Restart Key Guards
+    # Clean data dir
+    if os.path.exists(DATA_DIR):
+        try:
+            shutil.rmtree(DATA_DIR)
+        except Exception:
+            pass
+    os.makedirs(DATA_DIR, exist_ok=True)
+    save_agents_registry(default_registry)
+
+    # Restart default Key Guards
     success = start_key_guards()
     
     return jsonify({"status": "reset_success", "key_guards_restarted": success})
