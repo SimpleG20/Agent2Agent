@@ -132,7 +132,7 @@ def status():
         }
 
     return jsonify({
-        "contract_address": "N/A - Pure P2P Handshake Mode",
+        "contract_address": "N/D - Modo de Handshake P2P Puro",
         "agents": agents_status
     })
 
@@ -145,7 +145,7 @@ def send_message():
     amount = data.get("amount")
 
     if not sender or not recipient or not content:
-        return jsonify({"error": "Missing fields"}), 400
+        return jsonify({"error": "Campos obrigatórios ausentes"}), 400
 
     if amount is not None:
         try:
@@ -155,7 +155,7 @@ def send_message():
 
     registry = load_agents_registry()
     if sender not in registry:
-        return jsonify({"error": f"Sender {sender} not found"}), 404
+        return jsonify({"error": f"Remetente {sender} não encontrado"}), 404
         
     port = registry[sender]
     agent = CognitiveAgent(sender, f"http://localhost:{port}", data_dir=DATA_DIR)
@@ -168,11 +168,11 @@ def poll_inbox():
     data = request.json
     name = data.get("name")
     if not name:
-        return jsonify({"error": "Missing agent name"}), 400
+        return jsonify({"error": "Nome do agente ausente"}), 400
 
     registry = load_agents_registry()
     if name not in registry:
-        return jsonify({"error": f"Agent {name} not found"}), 404
+        return jsonify({"error": f"Agente {name} não encontrado"}), 404
         
     port = registry[name]
     agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
@@ -187,11 +187,11 @@ def trigger_handshake():
     target_endpoint = data.get("target_endpoint")
     
     if not sender or not target_endpoint:
-        return jsonify({"error": "Missing sender or target_endpoint"}), 400
+        return jsonify({"error": "Remetente ou target_endpoint ausente"}), 400
 
     registry = load_agents_registry()
     if sender not in registry:
-        return jsonify({"error": f"Sender {sender} not found"}), 404
+        return jsonify({"error": f"Remetente {sender} não encontrado"}), 404
 
     port = registry[sender]
     try:
@@ -208,14 +208,14 @@ def create_agent():
     data = request.json or {}
     name = data.get("name", "").strip().lower()
     if not name:
-        return jsonify({"error": "Agent name is required"}), 400
+        return jsonify({"error": "Nome do agente é obrigatório"}), 400
     
     if not name.isalnum():
-        return jsonify({"error": "Agent name must be alphanumeric"}), 400
+        return jsonify({"error": "Nome do agente deve ser alfanumérico"}), 400
 
     registry = load_agents_registry()
     if name in registry:
-        return jsonify({"error": f"Agent {name} already exists"}), 400
+        return jsonify({"error": f"Agente {name} já existe"}), 400
 
     # Allocate port dynamically (scanning starting from 8003)
     port = 8003
@@ -250,7 +250,7 @@ def create_agent():
         save_agents_registry(registry)
         if proc_key in subprocesses_dict:
             del subprocesses_dict[proc_key]
-        return jsonify({"error": f"Failed to start Key Guard for agent {name}. Check logs."}), 500
+        return jsonify({"error": f"Falha ao iniciar Key Guard para o agente {name}. Verifique os logs."}), 500
 
     return jsonify({"status": "created", "name": name, "port": port})
 
@@ -259,11 +259,11 @@ def remove_agent():
     data = request.json or {}
     name = data.get("name", "").strip().lower()
     if not name:
-        return jsonify({"error": "Agent name is required"}), 400
+        return jsonify({"error": "Nome do agente é obrigatório"}), 400
     
     registry = load_agents_registry()
     if name not in registry:
-        return jsonify({"error": f"Agent {name} does not exist"}), 404
+        return jsonify({"error": f"Agente {name} não existe"}), 404
 
     # Terminate process
     proc_key = f"key_guard_{name}"
@@ -303,11 +303,11 @@ def remove_agent():
 def db_view():
     name = request.args.get("name")
     if not name:
-        return jsonify({"error": "Missing name parameter"}), 400
+        return jsonify({"error": "Parâmetro name ausente"}), 400
 
     registry = load_agents_registry()
     if name not in registry:
-        return jsonify({"error": f"Agent {name} not found"}), 404
+        return jsonify({"error": f"Agente {name} não encontrado"}), 404
 
     db_path = os.path.join(DATA_DIR, name, "cognitive_store.db")
     blacklist_path = os.path.join(DATA_DIR, name, "blacklist.json")
