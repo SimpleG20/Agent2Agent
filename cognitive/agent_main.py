@@ -23,8 +23,6 @@ def main():
                 print(f"\n[{args.name.upper()} COGNITIVE INBOX] SECURE MESSAGE RECEIVED:")
                 print(f"  From:   {msg['from']}")
                 print(f"  Text:   {msg['content']}")
-                if msg.get('amount') is not None:
-                    print(f"  Amount: {msg['amount']}")
                 print("-" * 40)
 
             time.sleep(2)

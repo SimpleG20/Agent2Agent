@@ -142,16 +142,9 @@ def send_message():
     sender = data.get("sender")
     recipient = data.get("recipient")
     content = data.get("content")
-    amount = data.get("amount")
 
     if not sender or not recipient or not content:
         return jsonify({"error": "Campos obrigatórios ausentes"}), 400
-
-    if amount is not None:
-        try:
-            amount = float(amount)
-        except ValueError:
-            amount = None
 
     registry = load_agents_registry()
     if sender not in registry:
@@ -160,7 +153,7 @@ def send_message():
     port = registry[sender]
     agent = CognitiveAgent(sender, f"http://localhost:{port}", data_dir=DATA_DIR)
     
-    res = agent.tool_send_message(to_did=recipient, content=content, amount=amount)
+    res = agent.tool_send_message(to_did=recipient, content=content)
     return jsonify(res)
 
 @app.route("/api/poll", methods=["POST"])
@@ -298,6 +291,35 @@ def remove_agent():
             pass
 
     return jsonify({"status": "removed", "name": name})
+
+@app.route("/api/blacklist/remove", methods=["POST"])
+def remove_from_blacklist():
+    data = request.json or {}
+    name = data.get("name")
+    did = data.get("did")
+    
+    if not name or not did:
+        return jsonify({"error": "Campos obrigatórios ausentes"}), 400
+        
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agente {name} não encontrado"}), 404
+        
+    port = registry[name]
+    
+    # 1. Remove from SQLite (Cognitive layer)
+    agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
+    agent.remove_peer_from_blacklist(did)
+    
+    # 2. Remove from Go Key Guard
+    try:
+        r = requests.delete(f"http://localhost:{port}/blacklist", json={"did": did}, timeout=5)
+        if r.status_code == 200:
+            return jsonify({"status": "removed"})
+        else:
+            return jsonify({"error": f"Erro do Key Guard: {r.text}"}), r.status_code
+    except Exception as e:
+        return jsonify({"error": f"Falha ao sincronizar com o Key Guard: {str(e)}"}), 500
 
 @app.route("/api/db_view")
 def db_view():

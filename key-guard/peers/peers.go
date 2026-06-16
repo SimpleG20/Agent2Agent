@@ -90,6 +90,21 @@ func (ps *PeersStore) RevokePeer(did string) error {
 	return ps.save()
 }
 
+// UnrevokePeer marks a peer as not revoked.
+func (ps *PeersStore) UnrevokePeer(did string) error {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	info, exists := ps.peers[did]
+	if !exists {
+		return fmt.Errorf("peer not found to unrevoke: %s", did)
+	}
+
+	info.Revoked = false
+	ps.peers[did] = info
+	return ps.save()
+}
+
 func (ps *PeersStore) save() error {
 	data, err := json.MarshalIndent(ps.peers, "", "  ")
 	if err != nil {

@@ -161,6 +161,14 @@ func (app *KeyGuardApp) handleHandshake(w http.ResponseWriter, r *http.Request) 
 
 	log.Printf("[%s] Received handshake request from %s at %s", app.cfg.AgentName, peerInfo.DID, peerInfo.Endpoint)
 
+	// Check if peer is blacklisted
+	if app.blacklist.IsBlacklisted(peerInfo.DID) {
+		log.Printf("[%s] Rejecting handshake request from blacklisted peer %s", app.cfg.AgentName, peerInfo.DID)
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("cannot handshake with blacklisted peer: %s", peerInfo.DID)})
+		return
+	}
+
 	// Save peer
 	if err := app.peersStore.AddPeer(peerInfo); err != nil {
 		w.WriteHeader(http.StatusForbidden)
@@ -226,6 +234,14 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	var partnerInfo peers.PeerInfo
 	if err := json.NewDecoder(resp.Body).Decode(&partnerInfo); err != nil {
 		http.Error(w, "Failed to decode partner response", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if partner is blacklisted
+	if app.blacklist.IsBlacklisted(partnerInfo.DID) {
+		log.Printf("[%s] Rejecting handshake response from blacklisted partner %s", app.cfg.AgentName, partnerInfo.DID)
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("cannot handshake with blacklisted peer: %s", partnerInfo.DID)})
 		return
 	}
 
@@ -479,25 +495,40 @@ func (app *KeyGuardApp) handleReceiveMessage(w http.ResponseWriter, r *http.Requ
 
 // handleBlacklist manually blacklists a peer.
 func (app *KeyGuardApp) handleBlacklist(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method == http.MethodPost {
+		var req struct {
+			DID string `json:"did"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid body", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("[%s] Manually blacklisting DID %s for 10 minutes", app.cfg.AgentName, req.DID)
+		app.blacklist.Add(req.DID, 10*time.Minute)
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "blacklisted"})
+	} else if r.Method == http.MethodDelete {
+		var req struct {
+			DID string `json:"did"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid body", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("[%s] Manually removing DID %s from blacklist", app.cfg.AgentName, req.DID)
+		app.blacklist.Remove(req.DID)
+		_ = app.peersStore.UnrevokePeer(req.DID)
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "removed"})
+	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
-
-	var req struct {
-		DID string `json:"did"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid body", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("[%s] Manually blacklisting DID %s for 10 minutes", app.cfg.AgentName, req.DID)
-	app.blacklist.Add(req.DID, 10*time.Minute)
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "blacklisted"})
 }
 
 // handleInbox serves the received message queue to the local cognitive layer and clears it.
