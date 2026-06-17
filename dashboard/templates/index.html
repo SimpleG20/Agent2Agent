@@ -1189,7 +1189,7 @@
                         <div class="agent-name">
                             Agente ${name.charAt(0).toUpperCase() + name.slice(1)}
                         </div>
-                        <div class="agent-did">did:custom:${name}</div>
+                        <div class="agent-did" id="${name}-did-display">did:custom:${name}</div>
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         ${deleteButtonHtml}
@@ -1331,8 +1331,9 @@
                 activeNames.forEach(targetName => {
                     if (targetName !== name) {
                         const opt = document.createElement("option");
-                        opt.value = `did:custom:${targetName}`;
-                        opt.innerText = `did:custom:${targetName}`;
+                        const targetDid = globalAgents[targetName]?.did || `did:custom:${targetName}`;
+                        opt.value = targetDid;
+                        opt.innerText = targetDid;
                         recipientSelect.appendChild(opt);
                     }
                 });
@@ -1387,6 +1388,12 @@
 
                     const dot = document.getElementById(`${name}-status-dot`);
                     const text = document.getElementById(`${name}-status-text`);
+
+                    // Update DID display (use did:key: when available)
+                    const didDisplay = document.getElementById(`${name}-did-display`);
+                    if (didDisplay && agent.did) {
+                        didDisplay.innerText = agent.did;
+                    }
 
                     // Port/Online status
                     if (agent.key_guard_online) {

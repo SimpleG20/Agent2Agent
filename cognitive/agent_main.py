@@ -9,11 +9,11 @@ def main():
     parser.add_argument("--keyguard", required=True, help="Local Key Guard base URL")
     args = parser.parse_args()
 
-    print(f"=== Starting Cognitive Agent {args.name.upper()} ===")
-    print(f"DID: did:custom:{args.name}")
-    print(f"Key Guard URL: {args.keyguard}")
-    
-    agent = CognitiveAgent(name=args.name, key_guard_url=args.keyguard)
+	print(f"=== Starting Cognitive Agent {args.name.upper()} ===")
+	print(f"Key Guard URL: {args.keyguard}")
+	
+	agent = CognitiveAgent(name=args.name, key_guard_url=args.keyguard)
+	print(f"DID: {agent.did}")
 
     try:
         while True:

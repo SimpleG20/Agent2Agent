@@ -1,9 +1,38 @@
 import os
 import time
 import sqlite3
+import json
 import requests
 from pydantic import BaseModel, Field, ValidationError
 from typing import Optional, Dict, Any, List
+
+# Base58 alphabet (Bitcoin-style)
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+def base58btc_encode(data: bytes) -> str:
+    """Encode bytes to base58btc string."""
+    n = int.from_bytes(data, 'big')
+    if n == 0:
+        return '1' * len(data)
+    chars = []
+    while n > 0:
+        n, rem = divmod(n, 58)
+        chars.append(BASE58_ALPHABET[rem])
+    # Add leading '1's for leading zero bytes
+    for b in data:
+        if b != 0:
+            break
+        chars.append('1')
+    return ''.join(reversed(chars))
+
+def generate_did_key(public_key_bytes: bytes) -> str:
+    """Generate did:key: from Ed25519 public key bytes.
+    Format: did:key:z<base58btc(multicodec_prefix + pub_key)>
+    """
+    # Ed25519 multicodec prefix: varint(0xed) = [0xed, 0x01]
+    prefix = bytes([0xed, 0x01])
+    codec_key = prefix + public_key_bytes
+    return "did:key:z" + base58btc_encode(codec_key)
 
 # Pydantic schema for standard transaction/communication payload
 class MessagePayload(BaseModel):
@@ -13,10 +42,23 @@ class MessagePayload(BaseModel):
 class CognitiveAgent:
     def __init__(self, name: str, key_guard_url: str, data_dir: str = "./data"):
         self.name = name
-        self.did = f"did:custom:{name}"
         self.key_guard_url = key_guard_url
         self.data_dir = data_dir
         self.db_path = os.path.join(data_dir, name, "cognitive_store.db")
+        self.did = self._load_did_from_keyguard()
+        if not self.did:
+            self.did = f"did:custom:{name}"  # fallback
+
+    def _load_did_from_keyguard(self) -> Optional[str]:
+        """Fetch agent DID from Key Guard /agent-info endpoint."""
+        try:
+            resp = requests.get(f"{self.key_guard_url}/agent-info", timeout=3)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("did")
+        except Exception:
+            pass
+        return None
         
         # Ensure directories exist
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)

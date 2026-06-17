@@ -23,11 +23,13 @@ import (
 )
 
 type Config struct {
-	Port      string
-	AgentName string
-	DID       string
-	Endpoint  string
-	DataDir   string
+	Port        string
+	AgentName   string
+	DID         string // did:key:z... (new) or did:custom:<name> (legacy)
+	DIDKey      string // Always did:key:z... for crypto operations
+	Endpoint    string
+	DataDir     string
+	LegacyMode  bool // If true, still uses did:custom:<name> for backwards compat
 }
 
 type KeyGuardApp struct {
@@ -45,14 +47,17 @@ func main() {
 	agentName := flag.String("name", "alfa", "Name of the agent (alfa or beta)")
 	endpoint := flag.String("endpoint", "http://localhost:8001", "P2P public endpoint for this key guard")
 	dataDir := flag.String("datadir", "./data", "Directory to store keys, peers and blacklist cache")
+	legacyMode := flag.Bool("legacy-mode", false, "Use did:custom: instead of did:key: for backwards compat")
 	flag.Parse()
 
 	cfg := Config{
-		Port:      *port,
-		AgentName: *agentName,
-		DID:       "did:custom:" + *agentName,
-		Endpoint:  *endpoint,
-		DataDir:   *dataDir,
+		Port:        *port,
+		AgentName:   *agentName,
+		DID:         "did:custom:" + *agentName, // placeholder, updated after key generation
+		DIDKey:      "",
+		Endpoint:    *endpoint,
+		DataDir:     *dataDir,
+		LegacyMode:  *legacyMode,
 	}
 
 	app, err := InitializeApp(cfg)
@@ -60,7 +65,8 @@ func main() {
 		log.Fatalf("Initialization failed: %v", err)
 	}
 
-	log.Printf("[%s] Initialized Key Guard for %s (DID: %s)", cfg.AgentName, cfg.AgentName, cfg.DID)
+	log.Printf("[%s] Initialized Key Guard for %s (DID: %s)", app.cfg.AgentName, app.cfg.AgentName, app.cfg.DID)
+	log.Printf("[%s] DID Key: %s", app.cfg.AgentName, app.cfg.DIDKey)
 
 	// Setup Server
 	mux := http.NewServeMux()
@@ -70,6 +76,7 @@ func main() {
 	mux.HandleFunc("/blacklist", app.handleBlacklist)
 	mux.HandleFunc("/inbox", app.handleInbox)
 	mux.HandleFunc("/resolve", app.handleResolve)
+	mux.HandleFunc("/agent-info", app.handleAgentInfo)
 	
 	// P2P Handshake Endpoints
 	mux.HandleFunc("/handshake", app.handleHandshake)
@@ -119,14 +126,25 @@ func InitializeApp(cfg Config) (*KeyGuardApp, error) {
 		}
 	}
 
-	// 2. Initialize local Peers Store
+	// 2. Generate did:key: from public key
+	didKey := crypto.GenerateDIDKey(pub)
+	cfg.DIDKey = didKey
+
+	// Set DID based on mode
+	if cfg.LegacyMode {
+		cfg.DID = "did:custom:" + cfg.AgentName
+	} else {
+		cfg.DID = didKey
+	}
+
+	// 3. Initialize local Peers Store
 	peersFile := filepath.Join(cfg.DataDir, cfg.AgentName, "peers.json")
 	peersStore, err := peers.NewPeersStore(peersFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init peers store: %w", err)
 	}
 
-	// 3. Initialize Blacklist cache
+	// 4. Initialize Blacklist cache
 	blFile := filepath.Join(cfg.DataDir, cfg.AgentName, "blacklist.json")
 	bl, err := blacklist.NewBlacklist(blFile)
 	if err != nil {
@@ -180,6 +198,7 @@ func (app *KeyGuardApp) handleHandshake(w http.ResponseWriter, r *http.Request) 
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
 	resp := peers.PeerInfo{
 		DID:       app.cfg.DID,
+		DIDKey:    app.cfg.DIDKey,
 		PublicKey: pubKeyB64,
 		Endpoint:  app.cfg.Endpoint,
 		Revoked:   false,
@@ -208,6 +227,7 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
 	myInfo := peers.PeerInfo{
 		DID:       app.cfg.DID,
+		DIDKey:    app.cfg.DIDKey,
 		PublicKey: pubKeyB64,
 		Endpoint:  app.cfg.Endpoint,
 		Revoked:   false,
@@ -569,5 +589,19 @@ func (app *KeyGuardApp) handleResolve(w http.ResponseWriter, r *http.Request) {
 		"public_key": peer.PublicKey,
 		"endpoint":   peer.Endpoint,
 		"revoked":    peer.Revoked,
+	})
+}
+
+// handleAgentInfo returns information about this agent (for cognitive layer discovery).
+func (app *KeyGuardApp) handleAgentInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"name":        app.cfg.AgentName,
+		"did":         app.cfg.DID,
+		"did_key":     app.cfg.DIDKey,
+		"public_key":  pubKeyB64,
+		"endpoint":    app.cfg.Endpoint,
+		"legacy_mode": app.cfg.LegacyMode,
 	})
 }

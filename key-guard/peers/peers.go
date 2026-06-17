@@ -9,7 +9,8 @@ import (
 )
 
 type PeerInfo struct {
-	DID       string `json:"did"`
+	DID       string `json:"did"`        // did:key:z... or did:custom:<name> (legacy)
+	DIDKey    string `json:"did_key,omitempty"` // did:key:z... (new format, may differ from DID in legacy mode)
 	PublicKey string `json:"public_key"` // Base64 encoded Ed25519 public key
 	Endpoint  string `json:"endpoint"`   // HTTP address
 	Revoked   bool   `json:"revoked"`

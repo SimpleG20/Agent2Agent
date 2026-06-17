@@ -109,6 +109,20 @@ def status():
         # Check active status of Key Guard
         online = is_port_in_use(port)
 
+        # Fetch DID key from Key Guard's agent-info endpoint
+        did = f"did:custom:{name}"
+        did_key = ""
+        if online:
+            try:
+                r = requests.get(f"http://localhost:{port}/agent-info", timeout=2)
+                if r.status_code == 200:
+                    info = r.json()
+                    did_key = info.get("did_key", "")
+                    if did_key:
+                        did = did_key
+            except:
+                pass
+
         # Retrieve direct info of peers resolved in peers_store
         db_path = os.path.join(DATA_DIR, name, "cognitive_store.db")
         blacklist_path = os.path.join(DATA_DIR, name, "blacklist.json")
@@ -122,7 +136,8 @@ def status():
 
         agents_status[name] = {
             "name": name,
-            "did": f"did:custom:{name}",
+            "did": did,
+            "did_key": did_key,
             "key_guard_online": online,
             "key_guard_port": port,
             "cognitive_blacklist": cognitive_blacklist,
