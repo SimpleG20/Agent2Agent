@@ -4,6 +4,7 @@ data*/
 *.log
 *.db
 key-guard/key-guard-bin
+credential-authority/ca-bin
 __pycache__/
 .idea/
 .vscode/
