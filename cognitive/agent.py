@@ -49,6 +49,12 @@ class CognitiveAgent:
         if not self.did:
             self.did = f"did:custom:{name}"  # fallback
 
+        # Ensure directories exist
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+
+        # Initialize SQLite local storage for cognitive state
+        self._init_db()
+
     def _load_did_from_keyguard(self) -> Optional[str]:
         """Fetch agent DID from Key Guard /agent-info endpoint."""
         try:
@@ -59,12 +65,16 @@ class CognitiveAgent:
         except Exception:
             pass
         return None
-        
-        # Ensure directories exist
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        
-        # Initialize SQLite local storage for cognitive state
-        self._init_db()
+
+    def get_agent_card(self) -> Optional[Dict[str, Any]]:
+        """Fetch Agent Card from local Key Guard for capability discovery."""
+        try:
+            resp = requests.get(f"{self.key_guard_url}/.well-known/agent-card", timeout=3)
+            if resp.status_code == 200:
+                return resp.json()
+        except Exception as e:
+            print(f"[{self.name.upper()} COGNITIVE] Failed to fetch Agent Card: {e}")
+        return None
 
     def _init_db(self):
         conn = sqlite3.connect(self.db_path)
@@ -180,7 +190,127 @@ class CognitiveAgent:
             print(f"[{self.name.upper()} COGNITIVE] Error reading inbox: {e}")
             return []
 
-    # Monitor & Reputation logic
+    def tool_send_task(self, task_id: str, content: str,
+                       session_id: str = "", metadata: Optional[dict] = None) -> Dict[str, Any]:
+        """SendTaskTool: Creates a new A2A task via JSON-RPC.
+
+        Leverages the A2A Task Protocol with full lifecycle management
+        (submitted → working → completed/failed).
+        """
+        if not session_id:
+            session_id = f"session-{int(time.time())}"
+
+        jsonrpc_body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tasks/send",
+            "params": {
+                "id": task_id,
+                "sessionId": session_id,
+                "message": {
+                    "role": "agent",
+                    "parts": [{"type": "text", "text": content}]
+                }
+            }
+        }
+        if metadata:
+            jsonrpc_body["params"]["metadata"] = metadata
+
+        try:
+            resp = requests.post(f"{self.key_guard_url}/a2a/tasks/send",
+                                  json=jsonrpc_body, timeout=5)
+            if resp.status_code == 200:
+                result = resp.json()
+                return {"status": "task_created", "response": result}
+            else:
+                return {"status": "failed", "reason": f"HTTP {resp.status_code}: {resp.text}"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+
+    def tool_get_task(self, task_id: str) -> Dict[str, Any]:
+        """GetTaskTool: Retrieves the current status of an A2A task."""
+        jsonrpc_body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tasks/get",
+            "params": {"id": task_id}
+        }
+        try:
+            resp = requests.post(f"{self.key_guard_url}/a2a/tasks/get",
+                                  json=jsonrpc_body, timeout=5)
+            if resp.status_code == 200:
+                result = resp.json()
+                return {"status": "ok", "response": result}
+            return {"status": "failed", "reason": f"HTTP {resp.status_code}"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+
+    def tool_cancel_task(self, task_id: str) -> Dict[str, Any]:
+        """CancelTaskTool: Cancels a running A2A task."""
+        jsonrpc_body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tasks/cancel",
+            "params": {"id": task_id}
+        }
+        try:
+            resp = requests.post(f"{self.key_guard_url}/a2a/tasks/cancel",
+                                  json=jsonrpc_body, timeout=5)
+            if resp.status_code == 200:
+                result = resp.json()
+                return {"status": "canceled", "response": result}
+            return {"status": "failed", "reason": f"HTTP {resp.status_code}"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+
+    def tool_send_subscribe(self, task_id: str, content: str,
+                            session_id: str = "",
+                            metadata: Optional[dict] = None) -> Dict[str, Any]:
+        """SendSubscribeTool: Creates a task and streams status updates via SSE.
+
+        Leverages the A2A tasks/sendSubscribe endpoint for real-time
+        task state streaming (submitted -> working -> completed/failed/canceled).
+        """
+        if not session_id:
+            session_id = f"session-{int(time.time())}"
+
+        jsonrpc_body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tasks/sendSubscribe",
+            "params": {
+                "id": task_id,
+                "sessionId": session_id,
+                "message": {
+                    "role": "agent",
+                    "parts": [{"type": "text", "text": content}]
+                }
+            }
+        }
+        if metadata:
+            jsonrpc_body["params"]["metadata"] = metadata
+
+        try:
+            resp = requests.post(f"{self.key_guard_url}/a2a/tasks/sendSubscribe",
+                                  json=jsonrpc_body, stream=True, timeout=35)
+            if resp.status_code == 200:
+                events = []
+                for line in resp.iter_lines(decode_unicode=True):
+                    if not line:
+                        continue
+                    if line.startswith("data: "):
+                        data = json.loads(line[6:])
+                        events.append(data)
+                        state = data.get("status", {}).get("state", "")
+                        if state in ("completed", "failed", "canceled"):
+                            break
+                    elif line.startswith("event: error"):
+                        break
+                return {"status": "stream_complete", "events": events}
+            else:
+                return {"status": "failed", "reason": f"HTTP {resp.status_code}"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
 
     def detect_anomaly_intent(self, content: str) -> tuple[bool, str]:
         """

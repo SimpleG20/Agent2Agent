@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
@@ -15,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"a2a-secure-net/key-guard/a2a"
+	"a2a-secure-net/key-guard/agentcard"
 	"a2a-secure-net/key-guard/blacklist"
 	"a2a-secure-net/key-guard/crypto"
 	"a2a-secure-net/key-guard/didcomm"
@@ -23,21 +26,23 @@ import (
 )
 
 type Config struct {
-	Port        string
-	AgentName   string
-	DID         string // did:key:z... (new) or did:custom:<name> (legacy)
-	DIDKey      string // Always did:key:z... for crypto operations
-	Endpoint    string
-	DataDir     string
-	LegacyMode  bool // If true, still uses did:custom:<name> for backwards compat
+	Port       string
+	AgentName  string
+	DID        string // did:key:z... (new) or did:custom:<name> (legacy)
+	DIDKey     string // Always did:key:z... for crypto operations
+	Endpoint   string
+	DataDir    string
+	LegacyMode bool // If true, still uses did:custom:<name> for backwards compat
 }
 
 type KeyGuardApp struct {
 	cfg        Config
 	privKey    ed25519.PrivateKey
 	pubKey     ed25519.PublicKey
+	x25519Key  *ecdh.PrivateKey // X25519 key for JWE decryption
 	peersStore *peers.PeersStore
 	blacklist  *blacklist.Blacklist
+	taskStore  *a2a.TaskStore
 	inbox      []*didcomm.DIDCommMessage
 	inboxMu    sync.Mutex
 }
@@ -51,13 +56,13 @@ func main() {
 	flag.Parse()
 
 	cfg := Config{
-		Port:        *port,
-		AgentName:   *agentName,
-		DID:         "did:custom:" + *agentName, // placeholder, updated after key generation
-		DIDKey:      "",
-		Endpoint:    *endpoint,
-		DataDir:     *dataDir,
-		LegacyMode:  *legacyMode,
+		Port:       *port,
+		AgentName:  *agentName,
+		DID:        "did:custom:" + *agentName, // placeholder, updated after key generation
+		DIDKey:     "",
+		Endpoint:   *endpoint,
+		DataDir:    *dataDir,
+		LegacyMode: *legacyMode,
 	}
 
 	app, err := InitializeApp(cfg)
@@ -77,7 +82,14 @@ func main() {
 	mux.HandleFunc("/inbox", app.handleInbox)
 	mux.HandleFunc("/resolve", app.handleResolve)
 	mux.HandleFunc("/agent-info", app.handleAgentInfo)
-	
+	mux.HandleFunc("/.well-known/agent-card", app.handleAgentCard)
+
+	// A2A Task Protocol Endpoints (JSON-RPC)
+	mux.HandleFunc("/a2a/tasks/send", app.handleTaskSend)
+	mux.HandleFunc("/a2a/tasks/sendSubscribe", app.handleTaskSendSubscribe)
+	mux.HandleFunc("/a2a/tasks/get", app.handleTaskGet)
+	mux.HandleFunc("/a2a/tasks/cancel", app.handleTaskCancel)
+
 	// P2P Handshake Endpoints
 	mux.HandleFunc("/handshake", app.handleHandshake)
 	mux.HandleFunc("/handshake-peer", app.handleHandshakePeer)
@@ -151,12 +163,23 @@ func InitializeApp(cfg Config) (*KeyGuardApp, error) {
 		return nil, fmt.Errorf("failed to init blacklist: %w", err)
 	}
 
+	// 5. Derive X25519 key pair from Ed25519 keys (for JWE encryption)
+	x25519Key, err := crypto.Ed25519PrivateKeyToX25519(priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive X25519 key: %w", err)
+	}
+
+	// 6. Initialize A2A Task Store
+	taskStore := a2a.NewTaskStore()
+
 	return &KeyGuardApp{
 		cfg:        cfg,
 		privKey:    priv,
 		pubKey:     pub,
+		x25519Key:  x25519Key,
 		peersStore: peersStore,
 		blacklist:  bl,
+		taskStore:  taskStore,
 		inbox:      make([]*didcomm.DIDCommMessage, 0),
 	}, nil
 }
@@ -196,12 +219,14 @@ func (app *KeyGuardApp) handleHandshake(w http.ResponseWriter, r *http.Request) 
 
 	// Respond with own DID information to achieve mutual trust
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
+	x25519PubB64 := base64.StdEncoding.EncodeToString(app.x25519Key.PublicKey().Bytes())
 	resp := peers.PeerInfo{
-		DID:       app.cfg.DID,
-		DIDKey:    app.cfg.DIDKey,
-		PublicKey: pubKeyB64,
-		Endpoint:  app.cfg.Endpoint,
-		Revoked:   false,
+		DID:             app.cfg.DID,
+		DIDKey:          app.cfg.DIDKey,
+		PublicKey:       pubKeyB64,
+		X25519PublicKey: x25519PubB64,
+		Endpoint:        app.cfg.Endpoint,
+		Revoked:         false,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -225,12 +250,14 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	}
 
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
+	x25519PubB64 := base64.StdEncoding.EncodeToString(app.x25519Key.PublicKey().Bytes())
 	myInfo := peers.PeerInfo{
-		DID:       app.cfg.DID,
-		DIDKey:    app.cfg.DIDKey,
-		PublicKey: pubKeyB64,
-		Endpoint:  app.cfg.Endpoint,
-		Revoked:   false,
+		DID:             app.cfg.DID,
+		DIDKey:          app.cfg.DIDKey,
+		PublicKey:       pubKeyB64,
+		X25519PublicKey: x25519PubB64,
+		Endpoint:        app.cfg.Endpoint,
+		Revoked:         false,
 	}
 
 	log.Printf("[%s] Initiating P2P Handshake with endpoint: %s", app.cfg.AgentName, req.TargetEndpoint)
@@ -391,16 +418,43 @@ func (app *KeyGuardApp) handleSendMessage(w http.ResponseWriter, r *http.Request
 		ExpiresTime: time.Now().Add(5 * time.Minute).Unix(),
 	}
 
-	// 5. Sign message
+	// 5. Sign message (JWS)
 	signed, err := didcomm.SignMessage(didcommMsg, app.privKey)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to sign: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// 6. Transmit P2P
-	signedBytes, _ := json.Marshal(signed)
-	resp, err := http.Post(peer.Endpoint+"/receive-message", "application/json", bytes.NewBuffer(signedBytes))
+	// 6. Encrypt with JWE if peer supports X25519 encryption
+	transportBytes, _ := json.Marshal(signed)
+	if peer.X25519PublicKey != "" {
+		xPubBytes, err := base64.StdEncoding.DecodeString(peer.X25519PublicKey)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to decode peer X25519 key: %v", err)})
+			return
+		}
+		xPubKey, err := ecdh.X25519().NewPublicKey(xPubBytes)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to parse peer X25519 key: %v", err)})
+			return
+		}
+		kid := peer.DIDKey
+		if kid == "" {
+			kid = peer.DID
+		}
+		jweBytes, err := didcomm.EncryptMessage(transportBytes, xPubKey, kid)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("JWE encryption failed: %v", err)})
+			return
+		}
+		transportBytes = jweBytes
+	}
+
+	// 7. Transmit P2P
+	resp, err := http.Post(peer.Endpoint+"/receive-message", "application/json", bytes.NewBuffer(transportBytes))
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to deliver message to peer: %v", err)})
@@ -426,10 +480,38 @@ func (app *KeyGuardApp) handleReceiveMessage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var signed didcomm.SignedMessage
-	if err := json.NewDecoder(r.Body).Decode(&signed); err != nil {
-		http.Error(w, "Invalid signed envelope", http.StatusBadRequest)
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
+	}
+
+	// Detect if this is a JWE (encrypted) or JWS (signed) message
+	var signed didcomm.SignedMessage
+	var jweCheck struct {
+		Protected  string `json:"protected"`
+		Ciphertext string `json:"ciphertext"`
+		Tag        string `json:"tag"`
+	}
+
+	if json.Unmarshal(bodyBytes, &jweCheck) == nil && jweCheck.Protected != "" && jweCheck.Ciphertext != "" {
+		// This is a JWE — decrypt first
+		plaintext, err := didcomm.DecryptMessage(bodyBytes, app.x25519Key)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("JWE decryption failed: %v", err)})
+			return
+		}
+		if err := json.Unmarshal(plaintext, &signed); err != nil {
+			http.Error(w, "Failed to parse decrypted JWS", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Legacy JWS (unencrypted)
+		if err := json.Unmarshal(bodyBytes, &signed); err != nil {
+			http.Error(w, "Invalid signed envelope", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Unpack JWS to check sender DID
@@ -585,23 +667,291 @@ func (app *KeyGuardApp) handleResolve(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"did":        peer.DID,
-		"public_key": peer.PublicKey,
-		"endpoint":   peer.Endpoint,
-		"revoked":    peer.Revoked,
+		"did":               peer.DID,
+		"public_key":        peer.PublicKey,
+		"x25519_public_key": peer.X25519PublicKey,
+		"endpoint":          peer.Endpoint,
+		"revoked":           peer.Revoked,
 	})
+}
+
+// --- A2A Task Protocol Handlers ---
+
+// handleTaskSend creates a new task via JSON-RPC 2.0.
+// POST /a2a/tasks/send
+func (app *KeyGuardApp) handleTaskSend(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req a2a.JSONRPCRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32700, "Parse error: invalid JSON"))
+		return
+	}
+
+	// Parse params
+	paramsBytes, _ := json.Marshal(req.Params)
+	var taskParams a2a.TaskSendParams
+	if err := json.Unmarshal(paramsBytes, &taskParams); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Invalid params"))
+		return
+	}
+
+	if taskParams.ID == "" {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Missing task ID"))
+		return
+	}
+
+	// Create task in submitted state
+	task := &a2a.Task{
+		ID:        taskParams.ID,
+		SessionID: taskParams.SessionID,
+		Status: a2a.TaskStatus{
+			State:   a2a.TaskStateSubmitted,
+			Message: &taskParams.Message,
+		},
+		Metadata: taskParams.Metadata,
+	}
+
+	if err := app.taskStore.Create(task); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32603, err.Error()))
+		return
+	}
+
+	// Transition to working (simple auto-accept)
+	_ = task.Transition(a2a.TaskStateWorking)
+
+	log.Printf("[%s] Task created: %s (session: %s)", app.cfg.AgentName, task.ID, task.SessionID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(a2a.JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"id":     task.ID,
+			"status": task.Status,
+		},
+	})
+}
+
+// handleTaskGet retrieves the current status of a task.
+// POST /a2a/tasks/get
+func (app *KeyGuardApp) handleTaskGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req a2a.JSONRPCRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32700, "Parse error"))
+		return
+	}
+
+	paramsBytes, _ := json.Marshal(req.Params)
+	var taskParams a2a.TaskGetParams
+	if err := json.Unmarshal(paramsBytes, &taskParams); err != nil || taskParams.ID == "" {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Missing task ID"))
+		return
+	}
+
+	task, err := app.taskStore.Get(taskParams.ID)
+	if err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32000, err.Error()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(a2a.JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"id":     task.ID,
+			"status": task.Status,
+		},
+	})
+}
+
+// handleTaskCancel cancels a running task.
+// POST /a2a/tasks/cancel
+func (app *KeyGuardApp) handleTaskCancel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req a2a.JSONRPCRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32700, "Parse error"))
+		return
+	}
+
+	paramsBytes, _ := json.Marshal(req.Params)
+	var taskParams a2a.TaskCancelParams
+	if err := json.Unmarshal(paramsBytes, &taskParams); err != nil || taskParams.ID == "" {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Missing task ID"))
+		return
+	}
+
+	err := app.taskStore.Update(taskParams.ID, func(t *a2a.Task) error {
+		return t.Transition(a2a.TaskStateCanceled)
+	})
+	if err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32000, err.Error()))
+		return
+	}
+
+	task, _ := app.taskStore.Get(taskParams.ID)
+	log.Printf("[%s] Task canceled: %s", app.cfg.AgentName, taskParams.ID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(a2a.JSONRPCResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"id":     task.ID,
+			"status": task.Status,
+		},
+	})
+}
+
+// handleTaskSendSubscribe creates a task and streams status updates via SSE.
+// POST /a2a/tasks/sendSubscribe
+// Returns Content-Type: text/event-stream with task_update events.
+// Connection closes on terminal state, client disconnect, or 30s timeout.
+func (app *KeyGuardApp) handleTaskSendSubscribe(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	var req a2a.JSONRPCRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32700, "Parse error"))
+		return
+	}
+
+	paramsBytes, _ := json.Marshal(req.Params)
+	var taskParams a2a.TaskSendParams
+	if err := json.Unmarshal(paramsBytes, &taskParams); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Invalid params"))
+		return
+	}
+
+	if taskParams.ID == "" {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32602, "Missing task ID"))
+		return
+	}
+
+	// Create task in submitted state
+	task := &a2a.Task{
+		ID:        taskParams.ID,
+		SessionID: taskParams.SessionID,
+		Status: a2a.TaskStatus{
+			State:   a2a.TaskStateSubmitted,
+			Message: &taskParams.Message,
+		},
+		Metadata: taskParams.Metadata,
+	}
+
+	if err := app.taskStore.Create(task); err != nil {
+		json.NewEncoder(w).Encode(a2a.NewJSONRPCError(req.ID, -32603, err.Error()))
+		return
+	}
+
+	// Transition to working (simple auto-accept)
+	_ = task.Transition(a2a.TaskStateWorking)
+
+	log.Printf("[%s] Task created with SSE: %s (session: %s)", app.cfg.AgentName, task.ID, task.SessionID)
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// Subscribe to task updates
+	updateCh := app.taskStore.Subscribe(task.ID)
+	defer app.taskStore.Unsubscribe(task.ID, updateCh)
+
+	// Send initial task state event
+	initialData, _ := json.Marshal(map[string]interface{}{
+		"id":     task.ID,
+		"status": task.Status,
+	})
+	fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", initialData)
+	flusher.Flush()
+
+	// Stream updates until terminal state, client disconnect, or 30s timeout
+	timeout := time.After(30 * time.Second)
+	for {
+		select {
+		case update := <-updateCh:
+			data, _ := json.Marshal(map[string]interface{}{
+				"id":     update.ID,
+				"status": update.Status,
+			})
+			fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", data)
+			flusher.Flush()
+
+			// Terminate stream on final states
+			if update.Status.State == a2a.TaskStateCompleted ||
+				update.Status.State == a2a.TaskStateFailed ||
+				update.Status.State == a2a.TaskStateCanceled {
+				log.Printf("[%s] SSE stream ended for task %s (state: %s)", app.cfg.AgentName, task.ID, update.Status.State)
+				return
+			}
+		case <-r.Context().Done():
+			log.Printf("[%s] SSE client disconnected for task %s", app.cfg.AgentName, task.ID)
+			return
+		case <-timeout:
+			fmt.Fprintf(w, "event: error\ndata: {\"error\":\"timeout\"}\n\n")
+			flusher.Flush()
+			return
+		}
+	}
+}
+
+// handleAgentCard serves the A2A Agent Card for capability discovery.
+// GET /.well-known/agent-card
+func (app *KeyGuardApp) handleAgentCard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	card := agentcard.NewAgentCard(
+		app.cfg.AgentName,
+		app.cfg.DID,
+		"",
+		app.cfg.Endpoint,
+		agentcard.DefaultSkills(),
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(card)
 }
 
 // handleAgentInfo returns information about this agent (for cognitive layer discovery).
 func (app *KeyGuardApp) handleAgentInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
+	x25519PubB64 := base64.StdEncoding.EncodeToString(app.x25519Key.PublicKey().Bytes())
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"name":        app.cfg.AgentName,
-		"did":         app.cfg.DID,
-		"did_key":     app.cfg.DIDKey,
-		"public_key":  pubKeyB64,
-		"endpoint":    app.cfg.Endpoint,
-		"legacy_mode": app.cfg.LegacyMode,
+		"name":              app.cfg.AgentName,
+		"did":               app.cfg.DID,
+		"did_key":           app.cfg.DIDKey,
+		"public_key":        pubKeyB64,
+		"x25519_public_key": x25519PubB64,
+		"endpoint":          app.cfg.Endpoint,
+		"legacy_mode":       app.cfg.LegacyMode,
 	})
 }
