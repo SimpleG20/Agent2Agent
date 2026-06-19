@@ -59,7 +59,7 @@ func main() {
 	dataDir := flag.String("datadir", "./data", "Directory to store keys, peers and blacklist cache")
 	legacyMode := flag.Bool("legacy-mode", false, "Use did:custom: instead of did:key: for backwards compat")
 	caURL := flag.String("ca-url", "http://localhost:9001", "Credential Authority base URL")
-	caEnabled := flag.Bool("ca-enabled", true, "Enable agent credential verification")
+	caEnabled := flag.Bool("ca-enabled", false, "Enable agent credential verification")
 	flag.Parse()
 
 	cfg := Config{
@@ -257,23 +257,6 @@ func (app *KeyGuardApp) handleHandshake(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify peer's VC if CA is enabled
-	if app.cfg.CAEnabled {
-		if peerInfo.CredentialVC != nil && app.credStore.GetCAPublicKey() != nil {
-			if err := app.verifyPeerCredential(peerInfo.CredentialVC); err != nil {
-				log.Printf("[%s] Rejecting handshake: peer %s credential invalid: %v", app.cfg.AgentName, peerInfo.DID, err)
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Peer credential invalid: %v", err)})
-				return
-			}
-		} else if !app.cfg.LegacyMode {
-			log.Printf("[%s] Rejecting handshake: peer %s has no verifiable credential", app.cfg.AgentName, peerInfo.DID)
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Peer has no verifiable credential"})
-			return
-		}
-	}
-
 	// Save peer
 	if err := app.peersStore.AddPeer(peerInfo); err != nil {
 		w.WriteHeader(http.StatusForbidden)
@@ -341,9 +324,11 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	myInfoBytes, _ := json.Marshal(myInfo)
 
 	// Try VC handshake first if CA is enabled
+	usingVCHandshake := false
 	handshakeEndpoint := "/handshake"
 	if app.cfg.CAEnabled && app.credStore.GetOwnVC() != nil {
 		handshakeEndpoint = "/handshake-vc"
+		usingVCHandshake = true
 	}
 
 	resp, err := http.Post(req.TargetEndpoint+handshakeEndpoint, "application/json", bytes.NewBuffer(myInfoBytes))
@@ -375,8 +360,8 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Verify partner's VC if CA is enabled
-	if app.cfg.CAEnabled {
+	// Verify partner's VC if using VC handshake path
+	if usingVCHandshake && app.cfg.CAEnabled {
 		if partnerInfo.CredentialVC != nil && app.credStore.GetCAPublicKey() != nil {
 			if err := app.verifyPeerCredential(partnerInfo.CredentialVC); err != nil {
 				log.Printf("[%s] Rejecting handshake: partner %s credential invalid: %v", app.cfg.AgentName, partnerInfo.DID, err)
@@ -384,7 +369,7 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Partner credential invalid: %v", err)})
 				return
 			}
-		} else if !app.cfg.LegacyMode {
+		} else {
 			log.Printf("[%s] Rejecting handshake: partner %s has no verifiable credential", app.cfg.AgentName, partnerInfo.DID)
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"error": "Partner has no verifiable credential"})
