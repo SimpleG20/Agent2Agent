@@ -9,12 +9,13 @@ import (
 )
 
 type PeerInfo struct {
-	DID             string `json:"did"`                         // did:key:z... or did:custom:<name> (legacy)
-	DIDKey          string `json:"did_key,omitempty"`           // did:key:z... (new format)
-	PublicKey       string `json:"public_key"`                  // Base64 encoded Ed25519 public key
-	X25519PublicKey string `json:"x25519_public_key,omitempty"` // Base64 encoded X25519 public key (for JWE)
-	Endpoint        string `json:"endpoint"`                    // HTTP address
-	Revoked         bool   `json:"revoked"`
+	DID             string          `json:"did"`                         // did:key:z... or did:custom:<name> (legacy)
+	DIDKey          string          `json:"did_key,omitempty"`           // did:key:z... (new format)
+	PublicKey       string          `json:"public_key"`                  // Base64 encoded Ed25519 public key
+	X25519PublicKey string          `json:"x25519_public_key,omitempty"` // Base64 encoded X25519 public key (for JWE)
+	Endpoint        string          `json:"endpoint"`                    // HTTP address
+	Revoked         bool            `json:"revoked"`
+	CredentialVC    json.RawMessage `json:"credential_vc,omitempty"` // W3C VC from Credential Authority (raw JSON)
 }
 
 type PeersStore struct {

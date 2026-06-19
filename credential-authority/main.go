@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -91,7 +92,7 @@ func handleCAInfo(ca *CredentialAuthority) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]interface{}{
 			"name":            ca.Name(),
 			"did":             ca.DID(),
-			"publicKeyBase64": fmt.Sprintf("%x", ca.PublicKey()),
+			"publicKeyBase64": base64.StdEncoding.EncodeToString(ca.PublicKey()),
 			"totalIssued":     ca.TotalIssued(),
 			"totalRevoked":    ca.TotalRevoked(),
 		})

@@ -11,12 +11,12 @@ import "fmt"
 type TaskState string
 
 const (
-	TaskStateSubmitted    TaskState = "submitted"
-	TaskStateWorking      TaskState = "working"
+	TaskStateSubmitted     TaskState = "submitted"
+	TaskStateWorking       TaskState = "working"
 	TaskStateInputRequired TaskState = "input-required"
-	TaskStateCompleted    TaskState = "completed"
-	TaskStateFailed       TaskState = "failed"
-	TaskStateCanceled     TaskState = "canceled"
+	TaskStateCompleted     TaskState = "completed"
+	TaskStateFailed        TaskState = "failed"
+	TaskStateCanceled      TaskState = "canceled"
 )
 
 // ValidTransitions defines the allowed state transitions.
@@ -43,9 +43,9 @@ func IsValidTransition(current, next TaskState) bool {
 type PartType string
 
 const (
-	PartTypeText            PartType = "text"
-	PartTypeFile            PartType = "file"
-	PartTypeFunctionCall    PartType = "function_call"
+	PartTypeText             PartType = "text"
+	PartTypeFile             PartType = "file"
+	PartTypeFunctionCall     PartType = "function_call"
 	PartTypeFunctionResponse PartType = "function_response"
 )
 
@@ -55,13 +55,13 @@ type Part struct {
 	Text string   `json:"text,omitempty"`
 
 	// File fields
-	FileURI     string `json:"fileUri,omitempty"`
+	FileURI      string `json:"fileUri,omitempty"`
 	FileMimeType string `json:"fileMimeType,omitempty"`
 
 	// Function call/response fields
-	FunctionName string                 `json:"functionName,omitempty"`
-	Arguments    map[string]interface{} `json:"arguments,omitempty"`
-	FunctionResponse interface{}        `json:"functionResponse,omitempty"`
+	FunctionName     string                 `json:"functionName,omitempty"`
+	Arguments        map[string]interface{} `json:"arguments,omitempty"`
+	FunctionResponse interface{}            `json:"functionResponse,omitempty"`
 }
 
 // TaskMessage is a message exchanged within a task.
@@ -72,7 +72,7 @@ type TaskMessage struct {
 
 // TaskStatus represents the current status of a task.
 type TaskStatus struct {
-	State   TaskState     `json:"state"`
+	State   TaskState    `json:"state"`
 	Message *TaskMessage `json:"message,omitempty"`
 }
 

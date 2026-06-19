@@ -40,7 +40,8 @@ class MessagePayload(BaseModel):
     meta: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Metadata details")
 
 class CognitiveAgent:
-    def __init__(self, name: str, key_guard_url: str, data_dir: str = "./data"):
+    def __init__(self, name: str, key_guard_url: str, data_dir: str = "./data",
+                 request_vc: bool = True):
         self.name = name
         self.key_guard_url = key_guard_url
         self.data_dir = data_dir
@@ -54,6 +55,11 @@ class CognitiveAgent:
 
         # Initialize SQLite local storage for cognitive state
         self._init_db()
+
+        # Request VC from CA via Key Guard on startup
+        self.credential = None  # cached credential dict
+        if request_vc:
+            self._init_credential()
 
     def _load_did_from_keyguard(self) -> Optional[str]:
         """Fetch agent DID from Key Guard /agent-info endpoint."""
@@ -99,8 +105,137 @@ class CognitiveAgent:
                 blocked_at INTEGER
             )
         """)
+        # Agent's own Verifiable Credential store
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS agent_credential (
+                id TEXT PRIMARY KEY,
+                vc_json TEXT NOT NULL,
+                issuer_did TEXT NOT NULL,
+                issuance_date INTEGER NOT NULL,
+                expiration_date INTEGER NOT NULL,
+                is_revoked INTEGER DEFAULT 0
+            )
+        """)
         conn.commit()
         conn.close()
+
+    def _init_credential(self):
+        """Request credential from Key Guard on startup."""
+        cred = self.load_credential()
+        if cred:
+            self.credential = cred
+            exp = cred.get("expiration_date", 0)
+            now = int(time.time())
+            if exp > 0 and now > exp:
+                print(f"[{self.name.upper()} COGNITIVE] Cached VC expired, requesting fresh...")
+                self.request_credential()
+            else:
+                print(f"[{self.name.upper()} COGNITIVE] Using cached VC: {cred.get('id', 'unknown')}")
+        else:
+            print(f"[{self.name.upper()} COGNITIVE] No cached VC, requesting from CA...")
+            self.request_credential()
+
+    def request_credential(self) -> Dict[str, Any]:
+        """Request a Verifiable Credential from the CA via Key Guard proxy.
+
+        POST /credential/request-issue → stores result in SQLite.
+        Returns dict with status and credential info.
+        """
+        try:
+            resp = requests.post(f"{self.key_guard_url}/credential/request-issue",
+                                  json={}, timeout=10)
+            if resp.status_code == 200:
+                result = resp.json()
+                if result.get("status") == "issued":
+                    vc = result.get("credential", {})
+                    if vc:
+                        self._save_credential(vc)
+                        self.credential = vc
+                        print(f"[{self.name.upper()} COGNITIVE] VC issued: {vc.get('id', 'unknown')}")
+                        print(f"[{self.name.upper()} COGNITIVE] VC expires: {vc.get('expirationDate', 'unknown')}")
+                        return {"status": "issued", "credential": vc}
+                print(f"[{self.name.upper()} COGNITIVE] VC request result: {result}")
+                return {"status": "received", "data": result}
+            else:
+                err_msg = resp.json().get("error", resp.text)
+                print(f"[{self.name.upper()} COGNITIVE] VC request failed: {err_msg}")
+                return {"status": "failed", "reason": err_msg}
+        except Exception as e:
+            print(f"[{self.name.upper()} COGNITIVE] VC request error: {e}")
+            return {"status": "error", "reason": str(e)}
+
+    def _save_credential(self, vc: dict):
+        """Store credential in SQLite agent_credential table."""
+        vc_id = vc.get("id", f"vc-{int(time.time())}")
+        vc_json = json.dumps(vc)
+        issuer_did = vc.get("issuer", "")
+        exp_str = vc.get("expirationDate", "")
+        exp_ts = 0
+        if exp_str:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(exp_str.replace("Z", "+00:00"))
+                exp_ts = int(dt.timestamp())
+            except Exception:
+                exp_ts = 0
+        iss_ts = int(time.time())
+
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT OR REPLACE INTO agent_credential "
+            "(id, vc_json, issuer_did, issuance_date, expiration_date, is_revoked) "
+            "VALUES (?, ?, ?, ?, ?, 0)",
+            (vc_id, vc_json, issuer_did, iss_ts, exp_ts)
+        )
+        conn.commit()
+        conn.close()
+
+    def load_credential(self) -> Optional[Dict[str, Any]]:
+        """Load stored credential from SQLite.
+
+        Returns the credential dict or None if not found.
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT vc_json, expiration_date, is_revoked "
+            "FROM agent_credential ORDER BY issuance_date DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            vc_json, exp_ts, revoked = row
+            vc = json.loads(vc_json)
+            vc["expiration_timestamp"] = exp_ts
+            vc["is_revoked"] = revoked
+            return vc
+        return None
+
+    def get_credential_status(self) -> Dict[str, Any]:
+        """Get the current VC status for display."""
+        if not self.credential:
+            return {"status": "no_credential", "did": self.did}
+
+        vc = self.credential
+        vc_id = vc.get("id", "unknown")
+        exp_str = vc.get("expirationDate", "")
+        exp_ts = vc.get("expiration_timestamp", 0)
+        now = int(time.time())
+
+        if vc.get("is_revoked", False):
+            status = "revoked"
+        elif exp_ts > 0 and now > exp_ts:
+            status = "expired"
+        else:
+            status = "verified"
+
+        return {
+            "status": status,
+            "did": self.did,
+            "credential_id": vc_id,
+            "expires": exp_str,
+        }
 
     # Tools for LangGraph / Cognitive Agent
 

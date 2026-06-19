@@ -17,6 +17,7 @@ app = Flask(__name__)
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(PROJECT_DIR, "data_dashboard")
+CA_URL = os.environ.get("CA_URL", "http://localhost:9999")
 
 # Maintain subprocesses dynamically
 subprocesses_dict = {}
@@ -79,13 +80,16 @@ def start_key_guards():
             print(f"Starting {name} Key Guard on port {port}...")
             os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
             log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
-            subprocesses_dict[proc_key] = subprocess.Popen([
+            cmd = [
                 key_guard_bin,
                 "-port", str(port),
                 "-name", name,
                 "-endpoint", f"http://localhost:{port}",
-                "-datadir", DATA_DIR
-            ], stdout=log_file, stderr=log_file, text=True)
+                "-datadir", DATA_DIR,
+                "-ca-url", CA_URL,
+                "-ca-enabled",
+            ]
+            subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
             started_any = True
 
     if started_any:
@@ -134,6 +138,18 @@ def status():
         key_guard_blacklist = get_json_file(blacklist_path)
         peers_store = get_json_file(peers_path)
 
+        # Fetch credential info from Key Guard
+        credential = {}
+        if online:
+            try:
+                r = requests.get(f"http://localhost:{port}/credential", timeout=2)
+                if r.status_code == 200:
+                    credential = r.json()
+                else:
+                    credential = {"error": f"status {r.status_code}"}
+            except Exception as e:
+                credential = {"error": str(e)}
+
         agents_status[name] = {
             "name": name,
             "did": did,
@@ -143,7 +159,8 @@ def status():
             "cognitive_blacklist": cognitive_blacklist,
             "key_guard_blacklist": key_guard_blacklist,
             "peers_store": peers_store,
-            "tx_history": tx_history
+            "tx_history": tx_history,
+            "credential": credential
         }
 
     return jsonify({
@@ -246,7 +263,9 @@ def create_agent():
         "-port", str(port),
         "-name", name,
         "-endpoint", f"http://localhost:{port}",
-        "-datadir", DATA_DIR
+        "-datadir", DATA_DIR,
+        "-ca-url", CA_URL,
+        "-ca-enabled",
     ], stdout=log_file, stderr=log_file, text=True)
     
     # Wait for initialization
@@ -374,6 +393,98 @@ def db_view():
         "key_guard_blacklist": key_guard_blacklist,
         "peers_store": peers_store
     })
+
+@app.route("/api/ca/status")
+def ca_status():
+    """Returns CA status: online/offline, public key, VC counts."""
+    try:
+        r = requests.get(f"{CA_URL}/ca/info", timeout=2)
+        if r.status_code == 200:
+            info = r.json()
+            return jsonify({"online": True, "did_key": info.get("did_key", ""), "public_key": info.get("public_key_base64", "")})
+        return jsonify({"online": False, "error": f"CA returned {r.status_code}"})
+    except Exception as e:
+        return jsonify({"online": False, "error": str(e)})
+
+@app.route("/api/credential/revoke", methods=["POST"])
+def revoke_credential():
+    """Revokes an agent's credential via the CA."""
+    data = request.json or {}
+    agent_name = data.get("name")
+    credential_id = data.get("credential_id")
+
+    if not agent_name:
+        return jsonify({"error": "Agent name required"}), 400
+    if not credential_id:
+        return jsonify({"error": "Credential ID required"}), 400
+
+    # Revoke via CA
+    try:
+        r = requests.post(f"{CA_URL}/credential/revoke", json={"credential_id": credential_id}, timeout=5)
+        if r.status_code == 200:
+            return jsonify({"status": "revoked", "credential_id": credential_id})
+        else:
+            return jsonify({"error": r.text}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/agent-card")
+def agent_card_view():
+    """Fetches the Agent Card from a specific key guard."""
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"error": "Name parameter required"}), 400
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+    port = registry[name]
+    try:
+        r = requests.get(f"http://localhost:{port}/.well-known/agent-card", timeout=3)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": f"Agent card returned {r.status_code}"}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/tasks/list")
+def tasks_list():
+    """Lists tasks from a specific agent's Key Guard."""
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"error": "Name parameter required"}), 400
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+    port = registry[name]
+    tasks = []
+    try:
+        # Fetch all tasks via the task store endpoint
+        # For now, list known tasks from task store
+        r = requests.get(f"http://localhost:{port}/a2a/tasks/list", timeout=3)
+        if r.status_code == 200:
+            tasks = r.json().get("tasks", [])
+    except:
+        pass
+    return jsonify({"agent": name, "tasks": tasks})
+
+@app.route("/api/credential/request-issue", methods=["POST"])
+def credential_request_issue():
+    """Requests a new VC for an agent from the CA via the Key Guard."""
+    data = request.json or {}
+    name = data.get("name")
+    if not name:
+        return jsonify({"error": "Agent name required"}), 400
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+    port = registry[name]
+    try:
+        r = requests.post(f"http://localhost:{port}/credential/request-issue", json={}, timeout=5)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": r.text}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/reset", methods=["POST"])
 def reset_system():

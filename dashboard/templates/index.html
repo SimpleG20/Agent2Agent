@@ -966,6 +966,20 @@
         </div>
     </header>
 
+    <!-- CA Status Panel -->
+    <section class="manager-panel" id="ca-panel">
+        <div class="manager-title" style="color: var(--text-main);">🏛️ Autoridade de Credenciais (CA)</div>
+        <div class="manager-controls">
+            <div id="ca-status-content" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; width: 100%;">
+                <div class="status-pill">
+                    <div class="status-dot" id="ca-status-dot"></div>
+                    <span id="ca-status-text">Verificando...</span>
+                </div>
+                <div class="info-label" id="ca-did-display" style="font-family: var(--font-code); font-size: 0.78rem;"></div>
+            </div>
+        </div>
+    </section>
+
     <!-- Orchestration and Creation Manager -->
     <section class="manager-panel">
         <div class="manager-title">Registro e orquestração de agentes</div>
@@ -1078,6 +1092,21 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- Task Explorer -->
+    <section class="db-visualizer-panel">
+        <div class="db-visualizer-header">
+            <div class="db-visualizer-title">📋 Task Explorer (A2A Task Protocol)</div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <label class="info-label" style="margin: 0;">Agente:</label>
+                <select id="task-explorer-select" class="form-control" style="min-width: 150px;" onchange="loadTaskExplorer()"></select>
+                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadTaskExplorer()">Atualizar tasks</button>
+            </div>
+        </div>
+        <div id="task-explorer-content">
+            <div class="table-empty">Selecione um agente para ver tasks</div>
         </div>
     </section>
 
@@ -1208,6 +1237,30 @@
                     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                         <select id="${name}-handshake-target" class="form-control" style="padding: 0.3rem; font-size: 0.8rem; min-width: 120px;"></select>
                         <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="triggerHandshake('${name}')">Handshake</button>
+                    </div>
+                </div>
+
+                <!-- VC Status Badge -->
+                <div>
+                    <div class="section-title">Credencial Verificável (VC)</div>
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label" id="${name}-vc-status">Status: Verificando...</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-value" id="${name}-vc-details" style="font-size: 0.75rem;"></span>
+                        </div>
+                        <div id="${name}-vc-actions"></div>
+                    </div>
+                </div>
+
+                <!-- Agent Card Viewer -->
+                <div>
+                    <div class="section-title" style="cursor: pointer;" onclick="toggleAgentCard('${name}')">
+                        🪪 Agent Card <span id="${name}-card-toggle">[+]</span>
+                    </div>
+                    <div class="info-grid" id="${name}-agent-card-view" style="display: none;">
+                        <pre id="${name}-card-json" style="font-family: var(--font-code); font-size: 0.7rem; white-space: pre-wrap; word-break: break-word; margin: 0; overflow-x: auto;"></pre>
                     </div>
                 </div>
 
@@ -1344,6 +1397,30 @@
             }
         }
 
+        async function updateCAStatus() {
+            try {
+                const resp = await fetch("/api/ca/status");
+                const ca = await resp.json();
+                const dot = document.getElementById("ca-status-dot");
+                const text = document.getElementById("ca-status-text");
+                const didDisplay = document.getElementById("ca-did-display");
+                if (ca.online) {
+                    dot.className = "status-dot active";
+                    text.innerText = "CA Online";
+                    didDisplay.innerText = ca.did_key || ca.public_key?.slice(0, 24) + "...";
+                } else {
+                    dot.className = "status-dot inactive";
+                    text.innerText = "CA Offline";
+                    didDisplay.innerText = "";
+                }
+            } catch (e) {
+                const dot = document.getElementById("ca-status-dot");
+                const text = document.getElementById("ca-status-text");
+                if (dot) { dot.className = "status-dot inactive"; }
+                if (text) { text.innerText = "CA Offline"; }
+            }
+        }
+
         async function updateStatus() {
             try {
                 const response = await fetch("/api/status");
@@ -1369,6 +1446,24 @@
                 } else if (activeNames.length > 0) {
                     dbSelect.value = activeNames[0];
                     loadDatabaseView(); // load for new first item
+                }
+
+                // Sync task explorer select
+                const taskSelect = document.getElementById("task-explorer-select");
+                if (taskSelect) {
+                    const currentTaskVal = taskSelect.value;
+                    taskSelect.innerHTML = "";
+                    activeNames.forEach(n => {
+                        const opt = document.createElement("option");
+                        opt.value = n;
+                        opt.innerText = n.toUpperCase();
+                        taskSelect.appendChild(opt);
+                    });
+                    if (activeNames.includes(currentTaskVal)) {
+                        taskSelect.value = currentTaskVal;
+                    } else if (activeNames.length > 0) {
+                        taskSelect.value = activeNames[0];
+                    }
                 }
 
                 // 2. Remove obsolete cards
@@ -1425,6 +1520,31 @@
                         r_end.innerText = "...";
                         r_rev.innerText = "Desconectado";
                         r_rev.style.color = "var(--text-muted)";
+                    }
+
+                    // VC Status
+                    const vcStatus = document.getElementById(`${name}-vc-status`);
+                    const vcDetails = document.getElementById(`${name}-vc-details`);
+                    const vcActions = document.getElementById(`${name}-vc-actions`);
+                    if (vcStatus) {
+                        const cred = agent.credential || {};
+                        if (cred.status === "available" && cred.credential) {
+                            const vc = cred.credential;
+                            vcStatus.innerHTML = 'Status: <span style="color: var(--success); font-weight: 600;">✅ Credencial Verificada</span>';
+                            vcDetails.innerText = `ID: ${vc.id || vc.ID || "-"} | Exp: ${vc.expirationDate || vc.ExpirationDate || "-"}`;
+                            if (vcActions) {
+                                vcActions.innerHTML = `<button class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--error); color: white;" onclick="revokeCredential('${name}', '${vc.id || vc.ID || ""}')">Revogar Credencial</button>`;
+                            }
+                        } else if (cred.status === "no_credential") {
+                            vcStatus.innerHTML = 'Status: <span style="color: var(--warning); font-weight: 600;">⏳ Sem Credencial</span>';
+                            vcDetails.innerText = "Nenhuma credencial emitida";
+                            if (vcActions) {
+                                vcActions.innerHTML = `<button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="requestCredential('${name}')">Solicitar Credencial</button>`;
+                            }
+                        } else {
+                            vcStatus.innerHTML = 'Status: <span style="color: var(--text-muted);">❓ Indisponível</span>';
+                            vcDetails.innerText = "";
+                        }
                     }
 
                     // Blacklist - Cognitive
@@ -1814,6 +1934,129 @@
             }
         }
 
+        // Agent Card toggle
+        function toggleAgentCard(name) {
+            const view = document.getElementById(`${name}-agent-card-view`);
+            const toggle = document.getElementById(`${name}-card-toggle`);
+            if (view) {
+                const isHidden = view.style.display === "none";
+                view.style.display = isHidden ? "block" : "none";
+                if (toggle) toggle.innerText = isHidden ? "[-]" : "[+]";
+                if (isHidden) loadAgentCard(name);
+            }
+        }
+
+        async function loadAgentCard(name) {
+            const jsonEl = document.getElementById(`${name}-card-json`);
+            if (!jsonEl) return;
+            try {
+                const resp = await fetch(`/api/agent-card?name=${name}`);
+                const card = await resp.json();
+                jsonEl.innerText = JSON.stringify(card, null, 2);
+            } catch (e) {
+                jsonEl.innerText = "Erro ao carregar Agent Card";
+            }
+        }
+
+        async function revokeCredential(name, credentialId) {
+            if (!credentialId) { showToast("ID da credencial não disponível", "error"); return; }
+            if (!confirm(`Revogar credencial do agente ${name}?`)) return;
+            showToast(`Revogando credencial de ${name}...`, "warning");
+            try {
+                const resp = await fetch("/api/credential/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, credential_id: credentialId })
+                });
+                const res = await resp.json();
+                if (res.status === "revoked") {
+                    showToast(`Credencial de ${name} revogada!`, "success");
+                    updateStatus();
+                } else {
+                    showToast(`Falha: ${res.error}`, "error");
+                }
+            } catch (e) {
+                showToast("Erro ao revogar credencial", "error");
+            }
+        }
+
+        async function requestCredential(name) {
+            showToast(`Solicitando nova credencial para ${name}...`, "warning");
+            try {
+                const resp = await fetch("/api/credential/request-issue", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const res = await resp.json();
+                if (res.status === "issued") {
+                    showToast(`Credencial emitida para ${name}!`, "success");
+                    updateStatus();
+                } else {
+                    showToast(`Falha: ${res.error || 'erro desconhecido'}`, "error");
+                }
+            } catch (e) {
+                showToast("Erro ao solicitar credencial", "error");
+            }
+        }
+
+        async function loadTaskExplorer() {
+            const select = document.getElementById("task-explorer-select");
+            const name = select?.value;
+            if (!name) return;
+            const content = document.getElementById("task-explorer-content");
+            if (!content) return;
+
+            try {
+                const resp = await fetch(`/api/tasks/list?name=${name}`);
+                const data = await resp.json();
+                const tasks = data.tasks || [];
+
+                if (tasks.length === 0) {
+                    content.innerHTML = '<div class="table-empty">Nenhuma task encontrada</div>';
+                    return;
+                }
+
+                let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+                tasks.forEach(task => {
+                    const state = task.status?.state || "unknown";
+                    const stateColor = state === "completed" ? "var(--success)" :
+                                       state === "failed" ? "var(--error)" :
+                                       state === "canceled" ? "var(--warning)" :
+                                       state === "working" ? "var(--accent-alfa)" : "var(--text-muted)";
+                    const parts = task.status?.message?.parts || [];
+                    const textPreview = parts.map(p => p.text || "").filter(Boolean).join(" ").slice(0, 80);
+
+                    html += `
+                        <div class="db-visualizer-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 600; font-family: var(--font-code); font-size: 0.85rem;">${task.id}</span>
+                                <span style="color: ${stateColor}; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 20px; background: color-mix(in srgb, ${stateColor} 15%, transparent); font-size: 0.8rem;">
+                                    ${state.toUpperCase()}
+                                </span>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                ${task.sessionId ? `<span>Session: ${task.sessionId}</span>` : ""}
+                                ${textPreview ? `<span style="display: block; margin-top: 0.3rem;">📝 ${textPreview}${textPreview.length >= 80 ? "..." : ""}</span>` : ""}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; font-size: 0.75rem; font-family: var(--font-code); color: var(--text-muted);">
+                                <span>⏺ submitted</span>
+                                <span>→</span>
+                                <span>⚙️ working</span>
+                                ${state === "completed" ? '<span>→ ✅ completed</span>' : ""}
+                                ${state === "failed" ? '<span>→ ❌ failed</span>' : ""}
+                                ${state === "canceled" ? '<span>→ ⛔ canceled</span>' : ""}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            } catch (e) {
+                content.innerHTML = '<div class="table-empty">Erro ao carregar tasks</div>';
+            }
+        }
+
         // Theme toggle
         function toggleTheme() {
             const current = getCurrentTheme();
@@ -1833,13 +2076,29 @@
         }
 
         // Setup polling
-        setInterval(updateStatus, 2000);
+        setInterval(() => {
+            updateStatus();
+            updateCAStatus();
+        }, 2000);
         
         // Initial setup load
         (async () => {
             initTheme();
             await updateStatus();
+            await updateCAStatus();
             setTimeout(loadDatabaseView, 500);
+            // Populate task explorer select
+            setTimeout(() => {
+                const taskSelect = document.getElementById("task-explorer-select");
+                const dbSelect = document.getElementById("db-visualizer-select");
+                if (taskSelect && dbSelect) {
+                    taskSelect.innerHTML = dbSelect.innerHTML;
+                    if (taskSelect.options.length > 0) {
+                        taskSelect.value = dbSelect.value;
+                        loadTaskExplorer();
+                    }
+                }
+            }, 1000);
         })();
     </script>
 </body>
