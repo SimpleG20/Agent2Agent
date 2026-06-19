@@ -76,6 +76,11 @@ func (ca *CredentialAuthority) TotalIssued() int {
 	return ca.reg.TotalIssued()
 }
 
+// ListIssued returns summary info for all credentials issued by this CA.
+func (ca *CredentialAuthority) ListIssued() []registry.IssuedCredentialInfo {
+	return ca.reg.ListIssued()
+}
+
 // TotalRevoked returns the total number of revoked credentials.
 func (ca *CredentialAuthority) TotalRevoked() int {
 	return ca.reg.TotalRevoked()

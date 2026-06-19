@@ -150,6 +150,35 @@ func (r *Registry) isRevokedLocked(credentialID string) bool {
 	return false
 }
 
+// IssuedCredentialInfo is a summary of an issued credential for listing.
+type IssuedCredentialInfo struct {
+	VCID      string `json:"vcId"`
+	AgentDID  string `json:"agentDID"`
+	AgentName string `json:"agentName"`
+	IssuedAt  string `json:"issuedAt"`
+	ExpiresAt string `json:"expiresAt"`
+	Revoked   bool   `json:"revoked"`
+}
+
+// ListIssued returns summary info for all issued credentials.
+func (r *Registry) ListIssued() []IssuedCredentialInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]IssuedCredentialInfo, len(r.issued))
+	for i, vc := range r.issued {
+		revoked := r.isRevokedLocked(vc.ID)
+		result[i] = IssuedCredentialInfo{
+			VCID:      vc.ID,
+			AgentDID:  vc.CredentialSubject.ID,
+			AgentName: vc.CredentialSubject.AgentName,
+			IssuedAt:  vc.IssuanceDate,
+			ExpiresAt: vc.ExpirationDate,
+			Revoked:   revoked,
+		}
+	}
+	return result
+}
+
 // TotalIssued returns the count of issued credentials.
 func (r *Registry) TotalIssued() int {
 	r.mu.RLock()

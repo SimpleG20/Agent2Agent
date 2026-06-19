@@ -73,6 +73,7 @@ func main() {
 	mux.HandleFunc("/credential/verify", handleVerify(ca))
 	mux.HandleFunc("/credential/revoke", handleRevoke(ca))
 	mux.HandleFunc("/credential/crl", handleCRL(ca))
+	mux.HandleFunc("/credential/list", handleListCredentials(ca))
 	mux.HandleFunc("/credential/status/", handleStatus(ca))
 
 	addr := fmt.Sprintf(":%d", port)
@@ -240,6 +241,24 @@ func handleStatus(ca *CredentialAuthority) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, status)
+	}
+}
+
+// handleListCredentials returns summary info for all issued credentials.
+func handleListCredentials(ca *CredentialAuthority) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		issued := ca.ListIssued()
+		if issued == nil {
+			issued = []registry.IssuedCredentialInfo{}
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"totalIssued": len(issued),
+			"credentials": issued,
+		})
 	}
 }
 

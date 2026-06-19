@@ -9,6 +9,7 @@ key-guard/kg-server
 credential-authority/ca-bin
 credential-authority/credential-authority
 credential-authority/ca-server
+key-guard/ca-bin
 __pycache__/
 .idea/
 .vscode/

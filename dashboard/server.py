@@ -401,10 +401,21 @@ def ca_status():
         r = requests.get(f"{CA_URL}/ca/info", timeout=2)
         if r.status_code == 200:
             info = r.json()
-            return jsonify({"online": True, "did_key": info.get("did_key", ""), "public_key": info.get("public_key_base64", "")})
+            return jsonify({"online": True, "did_key": info.get("did", ""), "public_key": info.get("publicKeyBase64", ""), "total_issued": info.get("totalIssued", 0), "total_revoked": info.get("totalRevoked", 0)})
         return jsonify({"online": False, "error": f"CA returned {r.status_code}"})
     except Exception as e:
         return jsonify({"online": False, "error": str(e)})
+
+@app.route("/api/ca/credentials")
+def ca_credentials():
+    """Returns list of all credentials issued by the CA."""
+    try:
+        r = requests.get(f"{CA_URL}/credential/list", timeout=2)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": f"CA returned {r.status_code}", "credentials": []})
+    except Exception as e:
+        return jsonify({"error": str(e), "credentials": []})
 
 @app.route("/api/credential/revoke", methods=["POST"])
 def revoke_credential():
@@ -418,9 +429,9 @@ def revoke_credential():
     if not credential_id:
         return jsonify({"error": "Credential ID required"}), 400
 
-    # Revoke via CA
+    # Revoke via CA (CA expects camelCase credentialId)
     try:
-        r = requests.post(f"{CA_URL}/credential/revoke", json={"credential_id": credential_id}, timeout=5)
+        r = requests.post(f"{CA_URL}/credential/revoke", json={"credentialId": credential_id}, timeout=5)
         if r.status_code == 200:
             return jsonify({"status": "revoked", "credential_id": credential_id})
         else:

@@ -968,7 +968,12 @@
 
     <!-- CA Status Panel -->
     <section class="manager-panel" id="ca-panel">
-        <div class="manager-title" style="color: var(--text-main);">🏛️ Autoridade de Credenciais (CA)</div>
+        <div class="manager-title" style="color: var(--text-main); display: flex; justify-content: space-between; align-items: center;">
+            <span>🏛️ Autoridade de Credenciais (CA)</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <span class="info-label" id="ca-stats" style="font-size: 0.8rem;"></span>
+            </div>
+        </div>
         <div class="manager-controls">
             <div id="ca-status-content" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; width: 100%;">
                 <div class="status-pill">
@@ -976,6 +981,32 @@
                     <span id="ca-status-text">Verificando...</span>
                 </div>
                 <div class="info-label" id="ca-did-display" style="font-family: var(--font-code); font-size: 0.78rem;"></div>
+            </div>
+        </div>
+        <!-- Credential Management Table -->
+        <div style="margin-top: 1rem;">
+            <div class="section-title" style="cursor: pointer;" onclick="toggleCredentialsList()">
+                Credenciais Emitidas <span id="ca-cred-toggle">[+]</span>
+            </div>
+            <div id="ca-credential-list" style="display: none;">
+                <div class="table-container" style="max-height: 300px;">
+                    <table class="db-table" id="ca-cred-table">
+                        <thead>
+                            <tr>
+                                <th>ID da Credencial</th>
+                                <th>Agente</th>
+                                <th>DID</th>
+                                <th>Emissão</th>
+                                <th>Expiração</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ca-cred-tbody">
+                            <tr><td colspan="7" class="table-empty">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </section>
@@ -1397,6 +1428,73 @@
             }
         }
 
+        let credentialsListVisible = false;
+
+        function toggleCredentialsList() {
+            const list = document.getElementById("ca-credential-list");
+            const toggle = document.getElementById("ca-cred-toggle");
+            if (list) {
+                credentialsListVisible = !credentialsListVisible;
+                list.style.display = credentialsListVisible ? "block" : "none";
+                if (toggle) toggle.innerText = credentialsListVisible ? "[-]" : "[+]";
+                if (credentialsListVisible) loadCredentialsList();
+            }
+        }
+
+        async function loadCredentialsList() {
+            const tbody = document.getElementById("ca-cred-tbody");
+            if (!tbody) return;
+            try {
+                const resp = await fetch("/api/ca/credentials");
+                const data = await resp.json();
+                const creds = data.credentials || [];
+                if (creds.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Nenhuma credencial emitida</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = "";
+                creds.forEach(cred => {
+                    const tr = document.createElement("tr");
+                    const statusText = cred.revoked ? "Revogada" : "Ativa";
+                    const statusColor = cred.revoked ? "var(--error)" : "var(--success)";
+                    tr.innerHTML = `
+                        <td style="font-family: var(--font-code); font-size: 0.7rem;"><code>${cred.vcId}</code></td>
+                        <td><strong>${cred.agentName}</strong></td>
+                        <td style="font-family: var(--font-code); font-size: 0.7rem;"><code>${cred.agentDID.slice(0, 20)}...</code></td>
+                        <td style="font-size: 0.75rem;">${cred.issuedAt ? new Date(cred.issuedAt).toLocaleDateString() : '-'}</td>
+                        <td style="font-size: 0.75rem;">${cred.expiresAt ? new Date(cred.expiresAt).toLocaleDateString() : '-'}</td>
+                        <td style="color: ${statusColor}; font-weight: 600; font-size: 0.8rem;">${statusText}</td>
+                        <td>${cred.revoked ? '-' : `<button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: var(--error); color: white;" onclick="revokeCredentialFromCA('${cred.vcId}', '${cred.agentName}')">Revogar</button>`}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Erro ao carregar credenciais</td></tr>';
+            }
+        }
+
+        async function revokeCredentialFromCA(credentialId, agentName) {
+            if (!confirm(`Revogar credencial ${credentialId} do agente ${agentName}?`)) return;
+            showToast(`Revogando credencial de ${agentName}...`, "warning");
+            try {
+                const resp = await fetch("/api/credential/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: agentName, credential_id: credentialId })
+                });
+                const res = await resp.json();
+                if (res.status === "revoked") {
+                    showToast(`Credencial de ${agentName} revogada!`, "success");
+                    loadCredentialsList();
+                    updateStatus();
+                } else {
+                    showToast(`Falha: ${res.error}`, "error");
+                }
+            } catch (e) {
+                showToast("Erro ao revogar credencial", "error");
+            }
+        }
+
         async function updateCAStatus() {
             try {
                 const resp = await fetch("/api/ca/status");
@@ -1404,14 +1502,18 @@
                 const dot = document.getElementById("ca-status-dot");
                 const text = document.getElementById("ca-status-text");
                 const didDisplay = document.getElementById("ca-did-display");
+                const stats = document.getElementById("ca-stats");
                 if (ca.online) {
                     dot.className = "status-dot active";
                     text.innerText = "CA Online";
                     didDisplay.innerText = ca.did_key || ca.public_key?.slice(0, 24) + "...";
+                    if (stats) stats.innerText = `📄 ${ca.total_issued || 0} emitidas | 🚫 ${ca.total_revoked || 0} revogadas`;
+                    if (credentialsListVisible) loadCredentialsList();
                 } else {
                     dot.className = "status-dot inactive";
                     text.innerText = "CA Offline";
                     didDisplay.innerText = "";
+                    if (stats) stats.innerText = "";
                 }
             } catch (e) {
                 const dot = document.getElementById("ca-status-dot");
@@ -1626,7 +1728,7 @@
                 showToast("Por favor, insira um nome de agente válido", "warning");
                 return;
             }
-            showToast(`Criando agente ${name} (gerando chaves Ed25519)...`, "warning");
+            showToast(`Criando agente ${name} (gerando chaves Ed25519 + solicitando VC...`, "warning");
             
             try {
                 const response = await fetch("/api/agents/create", {
@@ -1636,9 +1738,21 @@
                 });
                 const res = await response.json();
                 if (res.status === "created") {
-                    showToast(`Agente ${res.name} criado na porta ${res.port}!`, "success");
+                    showToast(`✅ Agente ${res.name} criado na porta ${res.port}!`, "success");
                     input.value = "";
-                    updateStatus();
+                    await updateStatus();
+                    // Try to fetch the credential that should have been issued automatically
+                    await new Promise(r => setTimeout(r, 2000));
+                    const statusResp = await fetch("/api/status");
+                    const statusData = await statusResp.json();
+                    const agentInfo = statusData.agents?.[name];
+                    if (agentInfo?.credential?.credential?.id) {
+                        const credId = agentInfo.credential.credential.id;
+                        showToast(`🏛️ CA emitiu credencial: ${credId}`, "success");
+                    } else if (agentInfo?.credential?.credential_id) {
+                        showToast(`🏛️ CA emitiu credencial: ${agentInfo.credential.credential_id}`, "success");
+                    }
+                    if (credentialsListVisible) loadCredentialsList();
                 } else {
                     showToast(`Falha: ${res.error}`, "error");
                 }
