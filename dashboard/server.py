@@ -514,27 +514,6 @@ def agent_card_view():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/tasks/list")
-def tasks_list():
-    """Lists tasks from a specific agent's Key Guard."""
-    name = request.args.get("name")
-    if not name:
-        return jsonify({"error": "Name parameter required"}), 400
-    registry = load_agents_registry()
-    if name not in registry:
-        return jsonify({"error": f"Agent {name} not found"}), 404
-    port = registry[name]
-    tasks = []
-    try:
-        # Fetch all tasks via the task store endpoint
-        # For now, list known tasks from task store
-        r = requests.get(f"http://localhost:{port}/a2a/tasks/list", timeout=3)
-        if r.status_code == 200:
-            tasks = r.json().get("tasks", [])
-    except:
-        pass
-    return jsonify({"agent": name, "tasks": tasks})
-
 @app.route("/api/credential/request-issue", methods=["POST"])
 def credential_request_issue():
     """Requests a new VC for an agent from the CA via the Key Guard."""

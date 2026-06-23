@@ -1129,21 +1129,6 @@
         </div>
     </section>
 
-    <!-- Task Explorer -->
-    <section class="db-visualizer-panel">
-        <div class="db-visualizer-header">
-            <div class="db-visualizer-title">📋 Task Explorer (A2A Task Protocol)</div>
-            <div style="display: flex; gap: 1rem; align-items: center;">
-                <label class="info-label" style="margin: 0;">Agente:</label>
-                <select id="task-explorer-select" class="form-control" style="min-width: 150px;" onchange="loadTaskExplorer()"></select>
-                <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="loadTaskExplorer()">Atualizar tasks</button>
-            </div>
-        </div>
-        <div id="task-explorer-content">
-            <div class="table-empty">Selecione um agente para ver tasks</div>
-        </div>
-    </section>
-
     <div class="toast-container" id="toast-container"></div>
 
     <script>
@@ -1551,24 +1536,6 @@
                 } else if (activeNames.length > 0) {
                     dbSelect.value = activeNames[0];
                     loadDatabaseView(); // load for new first item
-                }
-
-                // Sync task explorer select
-                const taskSelect = document.getElementById("task-explorer-select");
-                if (taskSelect) {
-                    const currentTaskVal = taskSelect.value;
-                    taskSelect.innerHTML = "";
-                    activeNames.forEach(n => {
-                        const opt = document.createElement("option");
-                        opt.value = n;
-                        opt.innerText = n.toUpperCase();
-                        taskSelect.appendChild(opt);
-                    });
-                    if (activeNames.includes(currentTaskVal)) {
-                        taskSelect.value = currentTaskVal;
-                    } else if (activeNames.length > 0) {
-                        taskSelect.value = activeNames[0];
-                    }
                 }
 
                 // 2. Remove obsolete cards
@@ -2123,63 +2090,6 @@
             }
         }
 
-        async function loadTaskExplorer() {
-            const select = document.getElementById("task-explorer-select");
-            const name = select?.value;
-            if (!name) return;
-            const content = document.getElementById("task-explorer-content");
-            if (!content) return;
-
-            try {
-                const resp = await fetch(`/api/tasks/list?name=${name}`);
-                const data = await resp.json();
-                const tasks = data.tasks || [];
-
-                if (tasks.length === 0) {
-                    content.innerHTML = '<div class="table-empty">Nenhuma task encontrada</div>';
-                    return;
-                }
-
-                let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
-                tasks.forEach(task => {
-                    const state = task.status?.state || "unknown";
-                    const stateColor = state === "completed" ? "var(--success)" :
-                                       state === "failed" ? "var(--error)" :
-                                       state === "canceled" ? "var(--warning)" :
-                                       state === "working" ? "var(--accent-alfa)" : "var(--text-muted)";
-                    const parts = task.status?.message?.parts || [];
-                    const textPreview = parts.map(p => p.text || "").filter(Boolean).join(" ").slice(0, 80);
-
-                    html += `
-                        <div class="db-visualizer-card">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-weight: 600; font-family: var(--font-code); font-size: 0.85rem;">${task.id}</span>
-                                <span style="color: ${stateColor}; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 20px; background: color-mix(in srgb, ${stateColor} 15%, transparent); font-size: 0.8rem;">
-                                    ${state.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">
-                                ${task.sessionId ? `<span>Session: ${task.sessionId}</span>` : ""}
-                                ${textPreview ? `<span style="display: block; margin-top: 0.3rem;">📝 ${textPreview}${textPreview.length >= 80 ? "..." : ""}</span>` : ""}
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; font-size: 0.75rem; font-family: var(--font-code); color: var(--text-muted);">
-                                <span>⏺ submitted</span>
-                                <span>→</span>
-                                <span>⚙️ working</span>
-                                ${state === "completed" ? '<span>→ ✅ completed</span>' : ""}
-                                ${state === "failed" ? '<span>→ ❌ failed</span>' : ""}
-                                ${state === "canceled" ? '<span>→ ⛔ canceled</span>' : ""}
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                content.innerHTML = html;
-            } catch (e) {
-                content.innerHTML = '<div class="table-empty">Erro ao carregar tasks</div>';
-            }
-        }
-
         // Theme toggle
         function toggleTheme() {
             const current = getCurrentTheme();
@@ -2210,18 +2120,6 @@
             await updateStatus();
             await updateCAStatus();
             setTimeout(loadDatabaseView, 500);
-            // Populate task explorer select
-            setTimeout(() => {
-                const taskSelect = document.getElementById("task-explorer-select");
-                const dbSelect = document.getElementById("db-visualizer-select");
-                if (taskSelect && dbSelect) {
-                    taskSelect.innerHTML = dbSelect.innerHTML;
-                    if (taskSelect.options.length > 0) {
-                        taskSelect.value = dbSelect.value;
-                        loadTaskExplorer();
-                    }
-                }
-            }, 1000);
         })();
     </script>
 </body>
