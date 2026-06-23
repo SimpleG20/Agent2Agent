@@ -1249,7 +1249,7 @@
                         <div class="agent-name">
                             Agente ${name.charAt(0).toUpperCase() + name.slice(1)}
                         </div>
-                        <div class="agent-did" id="${name}-did-display">did:custom:${name}</div>
+                        <div class="agent-did" id="${name}-did-display">resolvendo DID...</div>
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         ${deleteButtonHtml}
@@ -1415,7 +1415,7 @@
                 activeNames.forEach(targetName => {
                     if (targetName !== name) {
                         const opt = document.createElement("option");
-                        const targetDid = globalAgents[targetName]?.did || `did:custom:${targetName}`;
+                        const targetDid = globalAgents[targetName]?.did || `did:key:pending-${targetName}`;
                         opt.value = targetDid;
                         opt.innerText = targetDid;
                         recipientSelect.appendChild(opt);

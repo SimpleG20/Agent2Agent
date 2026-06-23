@@ -17,7 +17,10 @@ app = Flask(__name__)
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(PROJECT_DIR, "data_dashboard")
-CA_URL = os.environ.get("CA_URL", "http://localhost:9999")
+CA_BIN = os.path.join(PROJECT_DIR, "credential-authority", "ca-bin")
+CA_DATA_DIR = os.path.join(PROJECT_DIR, "data_ca")
+CA_URL = os.environ.get("CA_URL", "http://localhost:9001")
+CA_PORT = 9001
 
 # Maintain subprocesses dynamically
 subprocesses_dict = {}
@@ -69,7 +72,43 @@ def get_json_file(file_path):
     except Exception:
         return {}
 
+def start_ca():
+    """Start the Credential Authority if not already running."""
+    proc_key = "credential_authority"
+    if is_port_in_use(CA_PORT):
+        # CA already running
+        return True
+    
+    if not os.path.exists(CA_BIN):
+        print(f"  WARNING: CA binary not found at {CA_BIN}")
+        return False
+    
+    print(f"Starting Credential Authority on port {CA_PORT}...")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    ca_log = open(os.path.join(DATA_DIR, "ca.log"), "w")
+    
+    # Use a dedicated CA data directory (default in CA binary is ./data_ca)
+    os.makedirs(CA_DATA_DIR, exist_ok=True)
+    
+    cmd = [
+        CA_BIN,
+        "-port", str(CA_PORT),
+        "-datadir", CA_DATA_DIR,
+    ]
+    subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=ca_log, stderr=ca_log, text=True)
+    time.sleep(2)
+    
+    if subprocesses_dict[proc_key].poll() is not None:
+        print(f"  WARNING: CA failed to start!")
+        return False
+    
+    print("  CA started successfully.")
+    return True
+
 def start_key_guards():
+    # Ensure CA is running first (Key Guards need it with -ca-enabled)
+    start_ca()
+    
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
     registry = load_agents_registry()
     
@@ -114,7 +153,7 @@ def status():
         online = is_port_in_use(port)
 
         # Fetch DID key from Key Guard's agent-info endpoint
-        did = f"did:custom:{name}"
+        did = f"did:key:pending-{name}"
         did_key = ""
         if online:
             try:
@@ -251,6 +290,9 @@ def create_agent():
 
     registry[name] = port
     save_agents_registry(registry)
+
+    # Ensure CA is running before spawning Key Guard
+    start_ca()
 
     # Spawn process
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
@@ -499,7 +541,17 @@ def credential_request_issue():
 
 @app.route("/api/reset", methods=["POST"])
 def reset_system():
-    # Kill all running Key Guards
+    # 0. Revoke all credentials in CA before cleaning
+    try:
+        r = requests.post(f"{CA_URL}/admin/reset", json={}, timeout=5)
+        if r.status_code == 200:
+            print("  CA credentials revoked/cleared.")
+        else:
+            print(f"  CA reset returned {r.status_code}")
+    except Exception as e:
+        print(f"  Could not reach CA for reset: {e}")
+
+    # 1. Kill all running Key Guards
     for key in list(subprocesses_dict.keys()):
         proc = subprocesses_dict[key]
         if proc:
@@ -510,26 +562,36 @@ def reset_system():
                 pass
             subprocesses_dict[key] = None
 
-    # Force kill any hanging key-guard-bin
+    # 2. Force kill any hanging processes
     try:
         subprocess.run(["pkill", "-f", "key-guard-bin"])
     except Exception:
         pass
+    try:
+        subprocess.run(["pkill", "-f", "ca-bin"])
+    except Exception:
+        pass
 
-    # Reset registry to default alfa/beta
-    default_registry = {"alfa": 8001, "beta": 8002}
-    save_agents_registry(default_registry)
+    # 3. Clean CA data directory
+    if os.path.exists(CA_DATA_DIR):
+        try:
+            shutil.rmtree(CA_DATA_DIR)
+        except Exception:
+            pass
 
-    # Clean data dir
+    # 4. Clean dashboard data dir
     if os.path.exists(DATA_DIR):
         try:
             shutil.rmtree(DATA_DIR)
         except Exception:
             pass
     os.makedirs(DATA_DIR, exist_ok=True)
+
+    # 5. Reset registry to default alfa/beta
+    default_registry = {"alfa": 8001, "beta": 8002}
     save_agents_registry(default_registry)
 
-    # Restart default Key Guards
+    # 6. Restart default Key Guards (this also starts CA)
     success = start_key_guards()
     
     return jsonify({"status": "reset_success", "key_guards_restarted": success})
