@@ -233,6 +233,10 @@ func (c *CRLCache) IsRevoked(credentialID string) bool {
 
 	// Cache expired — refresh
 	c.refresh()
+
+	// Re-acquire lock after refresh (which released write lock)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.revoked[credentialID]
 }
 
