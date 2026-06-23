@@ -19,6 +19,33 @@ PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(PROJECT_DIR, "data_dashboard")
 CA_URL = os.environ.get("CA_URL", "http://localhost:9999")
 
+# Skills allowed per issuer (CA). Each issuer can only grant these skills.
+ISSUER_SKILLS_MAP = {
+    "unifesp": [
+        "messaging",
+        "academic-enrollment",
+        "course-consultation",
+        "personal-data-management",
+    ],
+    "mrnutricoes": [
+        "messaging",
+        "meal-consultation",
+        "balance-recharge",
+        "access-validation",
+    ],
+}
+
+# Human-readable labels for skills (used by the /api/skills endpoint)
+SKILL_LABELS = {
+    "messaging": "Mensageria Segura",
+    "academic-enrollment": "Matrícula Acadêmica",
+    "course-consultation": "Consulta de Curso",
+    "personal-data-management": "Gestão de Dados Pessoais",
+    "meal-consultation": "Consulta de Cardápio RU",
+    "balance-recharge": "Recarga de Saldo RU",
+    "access-validation": "Validação de Acesso RU",
+}
+
 # Maintain subprocesses dynamically
 subprocesses_dict = {}
 
@@ -28,17 +55,24 @@ def is_port_in_use(port):
 
 def load_issuers_registry():
     path = os.path.join(DATA_DIR, "issuers.json")
+    default_issuers = {"unifesp": 9999, "mrnutricoes": 9998}
     if not os.path.exists(path):
-        default_issuers = {"main-ca": 9999}
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             json.dump(default_issuers, f, indent=4)
         return default_issuers
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            if "main-ca" in data or set(data.keys()) != {"unifesp", "mrnutricoes"}:
+                shutil.rmtree(DATA_DIR, ignore_errors=True)
+                os.makedirs(DATA_DIR, exist_ok=True)
+                with open(path, "w") as f:
+                    json.dump(default_issuers, f, indent=4)
+                return default_issuers
+            return data
     except Exception:
-        return {"main-ca": 9999}
+        return default_issuers
 
 def save_issuers_registry(registry):
     path = os.path.join(DATA_DIR, "issuers.json")
@@ -50,8 +84,10 @@ def load_agents_registry():
     path = os.path.join(DATA_DIR, "agents.json")
     if not os.path.exists(path):
         default_registry = {
-            "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
-            "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+            "ru-aluno": {"port": 8001, "issuer": "unifesp", "skills": ["messaging", "course-consultation", "personal-data-management"]},
+            "ru-catraca": {"port": 8002, "issuer": "mrnutricoes", "skills": ["messaging", "access-validation"]},
+            "secretaria": {"port": 8003, "issuer": "unifesp", "skills": ["messaging", "academic-enrollment", "course-consultation"]},
+            "ru-caixa": {"port": 8004, "issuer": "mrnutricoes", "skills": ["messaging", "balance-recharge", "meal-consultation"]}
         }
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
@@ -65,8 +101,8 @@ def load_agents_registry():
             if isinstance(val, int):
                 data[name] = {
                     "port": val,
-                    "issuer": "main-ca",
-                    "skills": ["messaging", "task-execution", "credential-verification"]
+                    "issuer": "unifesp",
+                    "skills": ["messaging", "course-consultation", "personal-data-management"]
                 }
                 migrated = True
         if migrated:
@@ -74,8 +110,10 @@ def load_agents_registry():
         return data
     except Exception:
         return {
-            "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
-            "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+            "ru-aluno": {"port": 8001, "issuer": "unifesp", "skills": ["messaging", "course-consultation", "personal-data-management"]},
+            "ru-catraca": {"port": 8002, "issuer": "mrnutricoes", "skills": ["messaging", "access-validation"]},
+            "secretaria": {"port": 8003, "issuer": "unifesp", "skills": ["messaging", "academic-enrollment", "course-consultation"]},
+            "ru-caixa": {"port": 8004, "issuer": "mrnutricoes", "skills": ["messaging", "balance-recharge", "meal-consultation"]}
         }
 
 def save_agents_registry(registry):
@@ -148,7 +186,7 @@ def start_key_guards():
     trusted_dids = get_all_ca_dids()
     for name, agent_info in registry.items():
         port = agent_info["port"]
-        issuer_name = agent_info.get("issuer", "main-ca")
+        issuer_name = agent_info.get("issuer", "unifesp")
         skills = agent_info.get("skills", [])
         
         # Get issuer port
@@ -323,8 +361,22 @@ def create_agent():
     if not name.isalnum():
         return jsonify({"error": "Nome do agente deve ser alfanumérico"}), 400
 
-    issuer = data.get("issuer", "main-ca")
+    issuer = data.get("issuer", "unifesp")
     skills = data.get("skills", [])
+
+    # Validate issuer exists
+    issuers = load_issuers_registry()
+    if issuer not in issuers:
+        return jsonify({"error": f"Emissor '{issuer}' não existe"}), 400
+
+    # Validate skills belong to the selected issuer
+    allowed_skills = ISSUER_SKILLS_MAP.get(issuer, [])
+    invalid_skills = [s for s in skills if s not in allowed_skills]
+    if invalid_skills:
+        return jsonify({
+            "error": f"As habilidades {invalid_skills} não pertencem ao emissor '{issuer}'. "
+                     f"Habilidades permitidas: {allowed_skills}"
+        }), 400
 
     registry = load_agents_registry()
     if name in registry:
@@ -502,7 +554,7 @@ def db_view():
 @app.route("/api/ca/status")
 def ca_status():
     """Returns CA status: online/offline, public key, VC counts."""
-    issuer_name = request.args.get("issuer", "main-ca")
+    issuer_name = request.args.get("issuer", "unifesp")
     issuers = load_issuers_registry()
     if issuer_name not in issuers:
         return jsonify({"online": False, "error": f"Issuer {issuer_name} not registered"})
@@ -527,7 +579,7 @@ def ca_status():
 @app.route("/api/ca/credentials")
 def ca_credentials():
     """Returns list of all credentials issued by the CA."""
-    issuer_name = request.args.get("issuer", "main-ca")
+    issuer_name = request.args.get("issuer", "unifesp")
     issuers = load_issuers_registry()
     if issuer_name not in issuers:
         return jsonify({"error": f"Issuer {issuer_name} not registered", "credentials": []})
@@ -557,9 +609,9 @@ def revoke_credential():
     registry = load_agents_registry()
     agent_info = registry.get(agent_name)
     if agent_info:
-        issuer_name = agent_info.get("issuer", "main-ca")
+        issuer_name = agent_info.get("issuer", "unifesp")
     else:
-        issuer_name = "main-ca"
+        issuer_name = "unifesp"
         
     issuers = load_issuers_registry()
     issuer_port = issuers.get(issuer_name, 9999)
@@ -611,6 +663,28 @@ def tasks_list():
     except:
         pass
     return jsonify({"agent": name, "tasks": tasks})
+
+@app.route("/api/skills")
+def list_skills():
+    """Returns skills available per issuer."""
+    issuer_name = request.args.get("issuer")
+    if issuer_name:
+        allowed = ISSUER_SKILLS_MAP.get(issuer_name, [])
+        return jsonify({
+            "issuer": issuer_name,
+            "skills": [
+                {"id": sid, "label": SKILL_LABELS.get(sid, sid)}
+                for sid in allowed
+            ]
+        })
+    # Return all
+    result = {}
+    for iss, skill_ids in ISSUER_SKILLS_MAP.items():
+        result[iss] = [
+            {"id": sid, "label": SKILL_LABELS.get(sid, sid)}
+            for sid in skill_ids
+        ]
+    return jsonify({"skills_by_issuer": result})
 
 @app.route("/api/credential/request-issue", methods=["POST"])
 def credential_request_issue():
@@ -728,8 +802,8 @@ def delete_issuer():
     name = data.get("name", "").strip().lower()
     if not name:
         return jsonify({"error": "Nome do emissor é obrigatório"}), 400
-    if name == "main-ca":
-        return jsonify({"error": "Não é possível excluir o emissor principal"}), 400
+    if name in ("unifesp", "mrnutricoes"):
+        return jsonify({"error": "Não é possível excluir os emissores padrão"}), 400
         
     issuers = load_issuers_registry()
     if name not in issuers:
@@ -795,12 +869,14 @@ def reset_system():
         pass
 
     # Reset registry to default CAs
-    save_issuers_registry({"main-ca": 9999})
+    save_issuers_registry({"unifesp": 9999, "mrnutricoes": 9998})
 
-    # Reset registry to default alfa/beta
+    # Reset registry to default agents
     default_registry = {
-        "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
-        "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+        "ru-aluno": {"port": 8001, "issuer": "unifesp", "skills": ["messaging", "course-consultation", "personal-data-management"]},
+        "ru-catraca": {"port": 8002, "issuer": "mrnutricoes", "skills": ["messaging", "access-validation"]},
+        "secretaria": {"port": 8003, "issuer": "unifesp", "skills": ["messaging", "academic-enrollment", "course-consultation"]},
+        "ru-caixa": {"port": 8004, "issuer": "mrnutricoes", "skills": ["messaging", "balance-recharge", "meal-consultation"]}
     }
     save_agents_registry(default_registry)
 
@@ -811,7 +887,7 @@ def reset_system():
         except Exception:
             pass
     os.makedirs(DATA_DIR, exist_ok=True)
-    save_issuers_registry({"main-ca": 9999})
+    save_issuers_registry({"unifesp": 9999, "mrnutricoes": 9998})
     save_agents_registry(default_registry)
 
     # Restart default Key Guards

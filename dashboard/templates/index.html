@@ -1084,43 +1084,11 @@
 
             <div class="form-group">
                 <label class="info-label">Habilidades do Agente (Skills):</label>
-                <div class="skills-grid">
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="messaging" checked>
-                        <span>Mensageria Segura</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="task-execution" checked>
-                        <span>Execução de Tarefas</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="credential-verification" checked>
-                        <span>Verificação de Credenciais</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="financial-analysis">
-                        <span>Análise Financeira</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="code-generation">
-                        <span>Geração de Código</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="data-mining">
-                        <span>Mineração de Dados</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="natural-language-processing">
-                        <span>NLP (Processamento Linguagem)</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="anomaly-detection">
-                        <span>Detecção de Anomalias</span>
-                    </label>
-                    <label class="skill-checkbox-label">
-                        <input type="checkbox" name="agent-skills" value="threat-hunting">
-                        <span>Caça a Ameaças</span>
-                    </label>
+                <div class="skills-grid" id="skills-grid-container">
+                    <div class="blacklist-empty">Selecione um emissor para ver as habilidades disponíveis</div>
+                </div>
+                <div id="skills-issuer-hint" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;">
+                    As habilidades disponíveis dependem do emissor (CA) selecionado.
                 </div>
             </div>
 
@@ -1759,7 +1727,7 @@
                 // Update new-agent-issuer select
                 const agentIssuerSelect = document.getElementById("new-agent-issuer");
                 if (agentIssuerSelect) {
-                    const currentVal = agentIssuerSelect.value || "main-ca";
+                    const currentVal = agentIssuerSelect.value || "unifesp";
                     agentIssuerSelect.innerHTML = "";
                     issuers.forEach(issuer => {
                         const opt = document.createElement("option");
@@ -1772,9 +1740,40 @@
                     } else if (issuers.length > 0) {
                         agentIssuerSelect.value = issuers[0].name;
                     }
+                    // Attach onchange handler (remove old to avoid duplicates)
+                    agentIssuerSelect.onchange = () => updateSkillsForIssuer(agentIssuerSelect.value);
+                    // Load skills for the currently selected issuer
+                    updateSkillsForIssuer(agentIssuerSelect.value);
                 }
             } catch (e) {
                 console.error("Error fetching issuers list", e);
+            }
+        }
+
+        async function updateSkillsForIssuer(issuerName) {
+            const container = document.getElementById("skills-grid-container");
+            if (!container) return;
+            if (!issuerName) {
+                container.innerHTML = `<div class="blacklist-empty">Selecione um emissor para ver as habilidades disponíveis</div>`;
+                return;
+            }
+            try {
+                const resp = await fetch(`/api/skills?issuer=${encodeURIComponent(issuerName)}`);
+                const data = await resp.json();
+                const skills = data.skills || [];
+                if (skills.length === 0) {
+                    container.innerHTML = `<div class="blacklist-empty">Nenhuma habilidade disponível para este emissor</div>`;
+                    return;
+                }
+                container.innerHTML = skills.map(skill => `
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="${skill.id}" ${skill.id === 'messaging' ? 'checked' : ''}>
+                        <span>${skill.label}</span>
+                    </label>
+                `).join('');
+            } catch (err) {
+                console.error("Failed to load skills for issuer:", err);
+                container.innerHTML = `<div class="blacklist-empty">Erro ao carregar habilidades</div>`;
             }
         }
 

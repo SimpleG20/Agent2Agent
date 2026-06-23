@@ -52,82 +52,112 @@ class TestA2AFullProtocol(unittest.TestCase):
         print("A2A FULL PROTOCOL E2E TESTS")
         print("=" * 70)
 
-        # 1. Start CA
-        print("\n[SETUP] Starting Credential Authority on port 9999...")
-        ca_log = open(os.path.join(DATA_DIR, "ca.log"), "w")
-        cls.log_files.append(ca_log)
-        cls.proc_ca = subprocess.Popen(
-            [CA_BIN, "-port", "9999", "-datadir", DATA_DIR],
-            stdout=ca_log, stderr=ca_log, text=True
+        # 1. Start UNIFESP CA
+        print("\n[SETUP] Starting UNIFESP CA on port 9999...")
+        unifesp_dir = os.path.join(DATA_DIR, "unifesp")
+        os.makedirs(unifesp_dir, exist_ok=True)
+        unifesp_log = open(os.path.join(DATA_DIR, "unifesp_ca.log"), "w")
+        cls.log_files.append(unifesp_log)
+        cls.proc_unifesp = subprocess.Popen(
+            [CA_BIN, "-port", "9999", "-datadir", unifesp_dir, "-name", "unifesp"],
+            stdout=unifesp_log, stderr=unifesp_log, text=True
         )
-        cls.processes.append(cls.proc_ca)
-        time.sleep(1)
+        cls.processes.append(cls.proc_unifesp)
 
-        # Verify CA started
-        if cls.proc_ca.poll() is not None:
-            raise RuntimeError("CA failed to start!")
-        print("  CA started.")
+        # 2. Start MRNutrições CA
+        print("[SETUP] Starting MRNutrições CA on port 9998...")
+        mrnutricoes_dir = os.path.join(DATA_DIR, "mrnutricoes")
+        os.makedirs(mrnutricoes_dir, exist_ok=True)
+        mrnutricoes_log = open(os.path.join(DATA_DIR, "mrnutricoes_ca.log"), "w")
+        cls.log_files.append(mrnutricoes_log)
+        cls.proc_mrnutricoes = subprocess.Popen(
+            [CA_BIN, "-port", "9998", "-datadir", mrnutricoes_dir, "-name", "mrnutricoes"],
+            stdout=mrnutricoes_log, stderr=mrnutricoes_log, text=True
+        )
+        cls.processes.append(cls.proc_mrnutricoes)
+        time.sleep(1.5)
 
-        # Get CA info
+        # Verify CAs started
+        if cls.proc_unifesp.poll() is not None:
+            raise RuntimeError("UNIFESP CA failed to start!")
+        if cls.proc_mrnutricoes.poll() is not None:
+            raise RuntimeError("MRNutrições CA failed to start!")
+        print("  CAs started.")
+
+        # Get CAs info
         try:
             r = requests.get("http://localhost:9999/ca/info", timeout=3)
-            cls.ca_info = r.json()
-            print(f"  CA DID: {cls.ca_info.get('did_key', 'N/A')}")
+            cls.unifesp_info = r.json()
+            cls.unifesp_did = cls.unifesp_info.get("did_key", cls.unifesp_info.get("did", ""))
+            cls.ca_info = cls.unifesp_info
+            print(f"  UNIFESP CA DID: {cls.unifesp_did}")
         except Exception as e:
-            raise RuntimeError(f"CA not responding: {e}")
+            raise RuntimeError(f"UNIFESP CA not responding: {e}")
 
-        # 2. Start Key Guard Alfa (with CA)
-        print("\n[SETUP] Starting Key Guard Alfa (port 8001)...")
+        try:
+            r = requests.get("http://localhost:9998/ca/info", timeout=3)
+            cls.mrnutricoes_info = r.json()
+            cls.mrnutricoes_did = cls.mrnutricoes_info.get("did_key", cls.mrnutricoes_info.get("did", ""))
+            print(f"  MRNutrições CA DID: {cls.mrnutricoes_did}")
+        except Exception as e:
+            raise RuntimeError(f"MRNutrições CA not responding: {e}")
+
+        # 3. Start Key Guard ru-aluno (with UNIFESP CA)
+        print("\n[SETUP] Starting Key Guard ru-aluno (port 8001)...")
         alfa_log = open(os.path.join(DATA_DIR, "alfa_kg.log"), "w")
         cls.log_files.append(alfa_log)
         cls.proc_alfa = subprocess.Popen([
             KEY_GUARD_BIN,
             "-port", "8001",
-            "-name", "alfa",
+            "-name", "ru-aluno",
             "-endpoint", "http://localhost:8001",
             "-datadir", DATA_DIR,
             "-ca-url", "http://localhost:9999",
             "-ca-enabled",
+            "-skills", "messaging,course-consultation,personal-data-management",
+            "-trusted-issuers", cls.mrnutricoes_did,
         ], stdout=alfa_log, stderr=alfa_log, text=True)
         cls.processes.append(cls.proc_alfa)
         time.sleep(1.5)
 
         if cls.proc_alfa.poll() is not None:
-            raise RuntimeError("Alfa KG failed to start!")
+            raise RuntimeError("ru-aluno KG failed to start!")
 
-        # 3. Start Key Guard Beta (with CA)
-        print("[SETUP] Starting Key Guard Beta (port 8002)...")
+        # 4. Start Key Guard ru-catraca (with MRNutrições CA)
+        print("[SETUP] Starting Key Guard ru-catraca (port 8002)...")
         beta_log = open(os.path.join(DATA_DIR, "beta_kg.log"), "w")
         cls.log_files.append(beta_log)
         cls.proc_beta = subprocess.Popen([
             KEY_GUARD_BIN,
             "-port", "8002",
-            "-name", "beta",
+            "-name", "ru-catraca",
             "-endpoint", "http://localhost:8002",
             "-datadir", DATA_DIR,
-            "-ca-url", "http://localhost:9999",
+            "-ca-url", "http://localhost:9998",
             "-ca-enabled",
+            "-skills", "messaging,access-validation",
+            "-trusted-issuers", cls.unifesp_did,
         ], stdout=beta_log, stderr=beta_log, text=True)
         cls.processes.append(cls.proc_beta)
         time.sleep(1.5)
 
         if cls.proc_beta.poll() is not None:
-            raise RuntimeError("Beta KG failed to start!")
+            raise RuntimeError("ru-catraca KG failed to start!")
 
-        # 4. Get agent info for both
+        # 5. Get agent info for both
         cls.alfa_info = requests.get("http://localhost:8001/agent-info", timeout=3).json()
         cls.beta_info = requests.get("http://localhost:8002/agent-info", timeout=3).json()
-        print(f"  Alfa DID: {cls.alfa_info['did']}")
-        print(f"  Beta DID: {cls.beta_info['did']}")
+        print(f"  ru-aluno DID: {cls.alfa_info['did']}")
+        print(f"  ru-catraca DID: {cls.beta_info['did']}")
 
-        # 5. Initialize Cognitive agents
-        cls.agent_alfa = CognitiveAgent("alfa", "http://localhost:8001",
+        # 6. Initialize Cognitive agents
+        cls.agent_alfa = CognitiveAgent("ru-aluno", "http://localhost:8001",
                                         data_dir=DATA_DIR, request_vc=False)
-        cls.agent_beta = CognitiveAgent("beta", "http://localhost:8002",
+        cls.agent_beta = CognitiveAgent("ru-catraca", "http://localhost:8002",
                                         data_dir=DATA_DIR, request_vc=False)
 
-        # 6. Mutual VC Handshake (alfa -> beta)
-        print("\n[SETUP] Performing VC handshake Alfa -> Beta...")
+        # 7. Mutual VC Handshake (ru-aluno -> ru-catraca)
+        print("\n[SETUP] Performing VC handshake ru-aluno -> ru-catraca...")
         resp = requests.post("http://localhost:8001/handshake-peer", json={
             "target_endpoint": "http://localhost:8002"
         }, timeout=5)
@@ -167,12 +197,12 @@ class TestA2AFullProtocol(unittest.TestCase):
     def test_01_agent_card(self):
         """Each agent serves a valid Agent Card at /.well-known/agent-card."""
         print("--- Test 01: Agent Card ---")
-        for name, port in [("alfa", 8001), ("beta", 8002)]:
+        for name, port in [("ru-aluno", 8001), ("ru-catraca", 8002)]:
             r = requests.get(f"http://localhost:{port}/.well-known/agent-card", timeout=3)
             self.assertEqual(r.status_code, 200)
             card = r.json()
             self.assertIn("name", card)
-            self.assertIn(card["name"].lower(), name)
+            self.assertIn(card["name"].lower(), name.lower())
             self.assertIn("capabilities", card)
             self.assertIn("skills", card.get("capabilities", {}))
             print(f"  {name}: Agent Card OK (skills: {len(card.get('capabilities', {}).get('skills', []))})")
@@ -581,8 +611,8 @@ class TestA2AFullProtocol(unittest.TestCase):
 
         # Kill the CA
         print("  Stopping CA...")
-        self.proc_ca.terminate()
-        self.proc_ca.wait(timeout=5)
+        self.proc_unifesp.terminate()
+        self.proc_unifesp.wait(timeout=5)
         time.sleep(1)
 
         # Verify CA is offline
@@ -617,13 +647,14 @@ class TestA2AFullProtocol(unittest.TestCase):
         finally:
             # Restart CA
             print("  Restarting CA...")
-            ca_log = open(os.path.join(DATA_DIR, "ca.log"), "a")
+            unifesp_log = open(os.path.join(DATA_DIR, "unifesp_ca.log"), "a")
             cls = self.__class__
-            cls.proc_ca = subprocess.Popen(
-                [CA_BIN, "-port", "9999", "-datadir", DATA_DIR],
-                stdout=ca_log, stderr=ca_log, text=True
+            unifesp_dir = os.path.join(DATA_DIR, "unifesp")
+            cls.proc_unifesp = subprocess.Popen(
+                [CA_BIN, "-port", "9999", "-datadir", unifesp_dir, "-name", "unifesp"],
+                stdout=unifesp_log, stderr=unifesp_log, text=True
             )
-            cls.processes.append(cls.proc_ca)
+            cls.processes.append(cls.proc_unifesp)
             time.sleep(2)
 
         print("  PASSED")
@@ -758,59 +789,109 @@ class TestA2AFullProtocol(unittest.TestCase):
         """Handshake fails when agents use different CAs (untrusted issuers)."""
         print("--- Test 15: Multiple Issuers (CAs) ---")
         
-        # 1. Start a second CA (CA2) on port 9998
-        ca2_dir = os.path.join(DATA_DIR, "ca2")
-        os.makedirs(ca2_dir, exist_ok=True)
-        ca2_log = open(os.path.join(DATA_DIR, "ca2.log"), "w")
-        proc_ca2 = subprocess.Popen(
-            [CA_BIN, "-port", "9998", "-datadir", ca2_dir, "-name", "CA Two"],
-            stdout=ca2_log, stderr=ca2_log, text=True
+        # 1. Start a third (untrusted) CA on port 9997
+        untrusted_ca_dir = os.path.join(DATA_DIR, "untrusted_ca")
+        os.makedirs(untrusted_ca_dir, exist_ok=True)
+        untrusted_log = open(os.path.join(DATA_DIR, "untrusted_ca.log"), "w")
+        proc_untrusted_ca = subprocess.Popen(
+            [CA_BIN, "-port", "9997", "-datadir", untrusted_ca_dir, "-name", "untrusted"],
+            stdout=untrusted_log, stderr=untrusted_log, text=True
         )
-        time.sleep(1)
+        time.sleep(1.5)
 
-        if proc_ca2.poll() is not None:
-            ca2_log.close()
-            self.skipTest("Second CA failed to start")
+        if proc_untrusted_ca.poll() is not None:
+            untrusted_log.close()
+            self.skipTest("Untrusted CA failed to start")
 
-        # 2. Start a temporary agent (temp-ca2) on port 8020, pointing to CA2
-        temp_dir = os.path.join(DATA_DIR, "temp-ca2")
+        # 2. Start a temporary agent (temp-untrusted) on port 8020, pointing to the untrusted CA
+        temp_dir = os.path.join(DATA_DIR, "temp-untrusted")
         os.makedirs(temp_dir, exist_ok=True)
-        temp_log = open(os.path.join(DATA_DIR, "temp-ca2.log"), "w")
+        temp_log = open(os.path.join(DATA_DIR, "temp-untrusted.log"), "w")
         proc_temp = subprocess.Popen([
             KEY_GUARD_BIN,
             "-port", "8020",
-            "-name", "temp-ca2",
+            "-name", "temp-untrusted",
             "-endpoint", "http://localhost:8020",
             "-datadir", temp_dir,
-            "-ca-url", "http://localhost:9998",
+            "-ca-url", "http://localhost:9997",
             "-ca-enabled",
         ], stdout=temp_log, stderr=temp_log, text=True)
         time.sleep(1.5)
 
         if proc_temp.poll() is not None:
-            proc_ca2.terminate()
-            proc_ca2.wait()
-            ca2_log.close()
+            proc_untrusted_ca.terminate()
+            proc_untrusted_ca.wait()
+            untrusted_log.close()
             temp_log.close()
-            self.skipTest("Temp-ca2 agent failed to start")
+            self.skipTest("temp-untrusted agent failed to start")
 
         try:
-            # 3. Attempt handshake from Alfa (CA1) to Temp-ca2 (CA2)
+            # 3. Attempt handshake from ru-aluno (port 8001, CA unifesp) to temp-untrusted (port 8020, CA untrusted)
             resp = requests.post("http://localhost:8001/handshake-peer", json={
                 "target_endpoint": "http://localhost:8020"
             }, timeout=5)
 
-            # This handshake should fail because Alfa does not trust CA2 (port 9998)
+            # This handshake should fail because ru-aluno does not trust untrusted CA (port 9997)
             self.assertNotEqual(resp.status_code, 200, "Handshake should have been rejected due to CA trust mismatch")
             print(f"  Handshake successfully rejected: {resp.status_code} {resp.text}")
 
         finally:
             proc_temp.terminate()
             proc_temp.wait()
-            proc_ca2.terminate()
-            proc_ca2.wait()
-            ca2_log.close()
+            proc_untrusted_ca.terminate()
+            proc_untrusted_ca.wait()
+            untrusted_log.close()
             temp_log.close()
+
+        print("  PASSED")
+
+    # ─────────────────────────────────────────────────
+    # Scenario 16: Academic and RU Skills
+    # ─────────────────────────────────────────────────
+    def test_16_academic_and_ru_skills(self):
+        """Verify that agents can execute interactive tools for their domains, and are blocked for unauthorized skills."""
+        print("--- Test 16: Academic & RU Skills ---")
+        
+        # 1. ru-aluno has 'course-consultation' and 'personal-data-management'
+        # Test consulting course (success)
+        res_course = self.agent_alfa.tool_consult_course("12345")
+        self.assertEqual(res_course["status"], "success")
+        self.assertEqual(res_course["data"]["student_name"], "Tasso")
+        print("  ru-aluno successfully consulted course for student 12345")
+
+        # Test managing personal data (success)
+        res_personal = self.agent_alfa.tool_manage_personal_data("12345", email="new_tasso@unifesp.br")
+        self.assertEqual(res_personal["status"], "success")
+        self.assertEqual(res_personal["updated_personal_data"]["email"], "new_tasso@unifesp.br")
+        print("  ru-aluno successfully updated email for student 12345")
+
+        # Test academic enrollment (should fail since ru-aluno lacks 'academic-enrollment' skill)
+        res_enroll = self.agent_alfa.tool_academic_enroll("12345", "UC-456")
+        self.assertEqual(res_enroll["status"], "error")
+        self.assertIn("lacks academic-enrollment skill", res_enroll["reason"])
+        print("  ru-aluno enrollment blocked as expected (unauthorized skill)")
+
+        # 2. ru-catraca has 'access-validation'
+        # Test access validation with valid card and sufficient balance (success)
+        res_access = self.agent_beta.tool_validate_ru_access("RU-777")
+        self.assertEqual(res_access["status"], "granted")
+        self.assertEqual(res_access["remaining_balance"], 8.00)  # 10.00 - 2.00 BRL
+        print("  ru-catraca successfully granted access and deducted RU meal fee")
+
+        # Test access validation with insufficient balance (should fail)
+        # 8.00 -> 6.00 -> 4.00 -> 2.00 -> 0.00 -> denied
+        for _ in range(4):
+            self.agent_beta.tool_validate_ru_access("RU-777")
+        res_denied = self.agent_beta.tool_validate_ru_access("RU-777")
+        self.assertEqual(res_denied["status"], "denied")
+        self.assertIn("insufficient balance", res_denied["reason"].lower())
+        print("  ru-catraca successfully denied access for insufficient balance")
+
+        # Test meal consultation (should fail since ru-catraca lacks 'meal-consultation' skill)
+        res_menu = self.agent_beta.tool_consult_meal_menu("segunda")
+        self.assertEqual(res_menu["status"], "error")
+        self.assertIn("lacks meal-consultation skill", res_menu["reason"])
+        print("  ru-catraca menu consultation blocked as expected (unauthorized skill)")
 
         print("  PASSED")
 

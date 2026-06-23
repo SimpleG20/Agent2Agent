@@ -79,7 +79,6 @@ func NewAgentCard(name, did, description, url string, skills []Skill) *AgentCard
 		},
 	}
 }
-
 // DefaultSkills returns the default set of skills for a Key Guard agent.
 func DefaultSkills() []Skill {
 	return []Skill{
@@ -87,16 +86,6 @@ func DefaultSkills() []Skill {
 			ID:          "messaging",
 			Name:        "Messaging",
 			Description: "Envio e recebimento de mensagens P2P seguras",
-		},
-		{
-			ID:          "task-execution",
-			Name:        "Task Execution",
-			Description: "Execução de tarefas assíncronas com lifecycle completo",
-		},
-		{
-			ID:          "credential-verification",
-			Name:        "Credential Verification",
-			Description: "Verificação de credenciais W3C com a Autoridade Certificadora",
 		},
 	}
 }
@@ -112,45 +101,35 @@ func ParseSkills(skillsStr string) []Skill {
 			Name:        "Messaging",
 			Description: "Envio e recebimento de mensagens P2P seguras",
 		},
-		"task-execution": {
-			ID:          "task-execution",
-			Name:        "Task Execution",
-			Description: "Execução de tarefas assíncronas com lifecycle completo",
+		"academic-enrollment": {
+			ID:          "academic-enrollment",
+			Name:        "Matrícula Acadêmica",
+			Description: "Inscrição e matrícula em disciplinas acadêmicas",
 		},
-		"credential-verification": {
-			ID:          "credential-verification",
-			Name:        "Credential Verification",
-			Description: "Verificação de credenciais W3C com a Autoridade Certificadora",
+		"course-consultation": {
+			ID:          "course-consultation",
+			Name:        "Consulta de Curso",
+			Description: "Acesso a notas, frequência e histórico escolar do aluno",
 		},
-		"financial-analysis": {
-			ID:          "financial-analysis",
-			Name:        "Financial Analysis",
-			Description: "Análise financeira e projeção de investimentos",
+		"personal-data-management": {
+			ID:          "personal-data-management",
+			Name:        "Gestão de Dados Pessoais",
+			Description: "Atualização cadastral e controle de dados pessoais do aluno",
 		},
-		"code-generation": {
-			ID:          "code-generation",
-			Name:        "Code Generation",
-			Description: "Desenvolvimento e revisão de código autônomo",
+		"meal-consultation": {
+			ID:          "meal-consultation",
+			Name:        "Consulta de Cardápio",
+			Description: "Consulta ao cardápio diário e horários de funcionamento do RU",
 		},
-		"data-mining": {
-			ID:          "data-mining",
-			Name:        "Data Mining",
-			Description: "Mineração de dados e extração de insights",
+		"balance-recharge": {
+			ID:          "balance-recharge",
+			Name:        "Recarga de Saldo",
+			Description: "Gerenciamento de saldo e recargas do cartão do RU",
 		},
-		"natural-language-processing": {
-			ID:          "natural-language-processing",
-			Name:        "NLP",
-			Description: "Processamento de linguagem natural e tradução",
-		},
-		"anomaly-detection": {
-			ID:          "anomaly-detection",
-			Name:        "Anomaly Detection",
-			Description: "Detecção de anomalias em tráfego de rede",
-		},
-		"threat-hunting": {
-			ID:          "threat-hunting",
-			Name:        "Threat Hunting",
-			Description: "Busca ativa por ameaças e vulnerabilidades",
+		"access-validation": {
+			ID:          "access-validation",
+			Name:        "Validação de Acesso",
+			Description: "Controle de acesso físico e catraca do Restaurante Universitário",
 		},
 	}
 	var result []Skill

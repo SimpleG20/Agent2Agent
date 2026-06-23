@@ -116,6 +116,65 @@ class CognitiveAgent:
                 is_revoked INTEGER DEFAULT 0
             )
         """)
+        # UNIFESP Academic tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS student_enrollments (
+                student_id TEXT,
+                course_code TEXT,
+                timestamp INTEGER,
+                PRIMARY KEY (student_id, course_code)
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS student_records (
+                student_id TEXT PRIMARY KEY,
+                student_name TEXT,
+                course_name TEXT,
+                grades TEXT,
+                attendance REAL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS student_personal_data (
+                student_id TEXT PRIMARY KEY,
+                email TEXT,
+                phone TEXT,
+                rg TEXT,
+                cpf TEXT
+            )
+        """)
+        # MRNutrições RU tables
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ru_menu (
+                day TEXT PRIMARY KEY,
+                lunch TEXT,
+                dinner TEXT
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ru_accounts (
+                card_number TEXT PRIMARY KEY,
+                student_id TEXT,
+                balance REAL
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ru_access_log (
+                id TEXT PRIMARY KEY,
+                card_number TEXT,
+                timestamp INTEGER,
+                status TEXT
+            )
+        """)
+        # Seed initial/mock data if empty
+        cursor.execute("SELECT COUNT(*) FROM student_records")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("INSERT OR REPLACE INTO student_records VALUES ('12345', 'Tasso', 'Ciência da Computação', '{\"Álgebra Linear\": 8.5, \"SSI\": 10.0}', 95.0)")
+            cursor.execute("INSERT OR REPLACE INTO student_personal_data VALUES ('12345', 'tasso@unifesp.br', '11999999999', 'RG-1234', 'CPF-5678')")
+            cursor.execute("INSERT OR REPLACE INTO ru_menu VALUES ('segunda', 'Arroz, Feijão, Frango Grelhado', 'Sopa de Legumes, Pão')")
+            cursor.execute("INSERT OR REPLACE INTO ru_menu VALUES ('terca', 'Arroz, Feijão, Carne Panela', 'Polenta com Ragu')")
+            cursor.execute("INSERT OR REPLACE INTO ru_menu VALUES ('quarta', 'Feijoada Completa', 'Creme de Abóbora')")
+            cursor.execute("INSERT OR REPLACE INTO ru_accounts VALUES ('RU-777', '12345', 10.0)")
         conn.commit()
         conn.close()
 
@@ -553,3 +612,188 @@ class CognitiveAgent:
         )
         conn.commit()
         conn.close()
+
+    def has_skill(self, skill_id: str) -> bool:
+        """Check if the agent possesses a specific skill according to its Agent Card."""
+        card = self.get_agent_card()
+        if not card:
+            return False
+        skills = card.get("capabilities", {}).get("skills", [])
+        return any(s.get("id") == skill_id for s in skills)
+
+    def tool_academic_enroll(self, student_id: str, course_code: str) -> Dict[str, Any]:
+        """academic-enrollment: Enrolls a student in a course at UNIFESP."""
+        if not self.has_skill("academic-enrollment"):
+            return {"status": "error", "reason": "Agent lacks academic-enrollment skill"}
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT OR REPLACE INTO student_enrollments (student_id, course_code, timestamp) VALUES (?, ?, ?)",
+                (student_id, course_code, int(time.time()))
+            )
+            conn.commit()
+            return {
+                "status": "success",
+                "message": f"Student {student_id} successfully enrolled in course {course_code} at UNIFESP",
+                "student_id": student_id,
+                "course_code": course_code
+            }
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
+
+    def tool_consult_course(self, student_id: str) -> Dict[str, Any]:
+        """course-consultation: Retrieves course name, grades, and attendance from UNIFESP."""
+        if not self.has_skill("course-consultation"):
+            return {"status": "error", "reason": "Agent lacks course-consultation skill"}
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM student_records WHERE student_id = ?", (student_id,))
+            row = cursor.fetchone()
+            if row:
+                data = dict(row)
+                data["grades"] = json.loads(data["grades"])
+                return {"status": "success", "data": data}
+            return {"status": "error", "reason": f"Student ID {student_id} not found"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
+
+    def tool_manage_personal_data(self, student_id: str, email: str = None, phone: str = None) -> Dict[str, Any]:
+        """personal-data-management: Updates and manages student personal contact details at UNIFESP."""
+        if not self.has_skill("personal-data-management"):
+            return {"status": "error", "reason": "Agent lacks personal-data-management skill"}
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM student_personal_data WHERE student_id = ?", (student_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {"status": "error", "reason": f"Student ID {student_id} not found"}
+            curr = dict(row)
+            new_email = email if email is not None else curr["email"]
+            new_phone = phone if phone is not None else curr["phone"]
+            cursor.execute(
+                "UPDATE student_personal_data SET email = ?, phone = ? WHERE student_id = ?",
+                (new_email, new_phone, student_id)
+            )
+            conn.commit()
+            return {
+                "status": "success",
+                "student_id": student_id,
+                "updated_personal_data": {
+                    "email": new_email,
+                    "phone": new_phone,
+                    "rg": curr["rg"],
+                    "cpf": curr["cpf"]
+                }
+            }
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
+
+    def tool_consult_meal_menu(self, day: str) -> Dict[str, Any]:
+        """meal-consultation: Consults the daily menu and schedule for the MRNutrições RU."""
+        if not self.has_skill("meal-consultation"):
+            return {"status": "error", "reason": "Agent lacks meal-consultation skill"}
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT * FROM ru_menu WHERE day = ?", (day.lower(),))
+            row = cursor.fetchone()
+            if row:
+                return {"status": "success", "menu": dict(row)}
+            return {"status": "error", "reason": f"No menu found for day '{day}'"}
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
+
+    def tool_recharge_ru_balance(self, card_number: str, amount: float) -> Dict[str, Any]:
+        """balance-recharge: Recharges balance on a card in the MRNutrições RU system."""
+        if not self.has_skill("balance-recharge"):
+            return {"status": "error", "reason": "Agent lacks balance-recharge skill"}
+        if amount <= 0:
+            return {"status": "error", "reason": "Recharge amount must be greater than zero"}
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT balance FROM ru_accounts WHERE card_number = ?", (card_number,))
+            row = cursor.fetchone()
+            if not row:
+                return {"status": "error", "reason": f"Card number {card_number} not found"}
+            new_balance = row["balance"] + amount
+            cursor.execute("UPDATE ru_accounts SET balance = ? WHERE card_number = ?", (new_balance, card_number))
+            conn.commit()
+            return {
+                "status": "success",
+                "message": f"Successfully recharged {amount:.2f} BRL",
+                "card_number": card_number,
+                "new_balance": new_balance
+            }
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
+
+    def tool_validate_ru_access(self, card_number: str) -> Dict[str, Any]:
+        """access-validation: Controls physical gate access based on card balance at MRNutrições RU."""
+        if not self.has_skill("access-validation"):
+            return {"status": "error", "reason": "Agent lacks access-validation skill"}
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT balance FROM ru_accounts WHERE card_number = ?", (card_number,))
+            row = cursor.fetchone()
+            if not row:
+                log_id = f"log_{int(time.time() * 1000)}"
+                cursor.execute(
+                    "INSERT INTO ru_access_log (id, card_number, timestamp, status) VALUES (?, ?, ?, 'DENIED_INVALID_CARD')",
+                    (log_id, card_number, int(time.time()))
+                )
+                conn.commit()
+                return {"status": "denied", "reason": f"Card {card_number} is invalid"}
+            balance = row["balance"]
+            meal_cost = 2.00
+            if balance >= meal_cost:
+                new_balance = balance - meal_cost
+                cursor.execute("UPDATE ru_accounts SET balance = ? WHERE card_number = ?", (new_balance, card_number))
+                log_id = f"log_{int(time.time() * 1000)}"
+                cursor.execute(
+                    "INSERT INTO ru_access_log (id, card_number, timestamp, status) VALUES (?, ?, ?, 'GRANTED')",
+                    (log_id, card_number, int(time.time()))
+                )
+                conn.commit()
+                return {
+                    "status": "granted",
+                    "card_number": card_number,
+                    "deducted_amount": meal_cost,
+                    "remaining_balance": new_balance
+                }
+            else:
+                log_id = f"log_{int(time.time() * 1000)}"
+                cursor.execute(
+                    "INSERT INTO ru_access_log (id, card_number, timestamp, status) VALUES (?, ?, ?, 'DENIED_INSUFFICIENT_BALANCE')",
+                    (log_id, card_number, int(time.time()))
+                )
+                conn.commit()
+                return {
+                    "status": "denied",
+                    "reason": "Insufficient balance on RU card",
+                    "card_number": card_number,
+                    "balance": balance
+                }
+        except Exception as e:
+            return {"status": "error", "reason": str(e)}
+        finally:
+            conn.close()
