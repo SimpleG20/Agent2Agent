@@ -35,7 +35,8 @@ class TestA2ASecureNetP2P(unittest.TestCase):
             "-port", "8001",
             "-name", "alfa",
             "-endpoint", "http://localhost:8001",
-            "-datadir", cls.data_dir
+            "-datadir", cls.data_dir,
+            "-legacy-mode"
         ], stdout=cls.alfa_log_file, stderr=cls.alfa_log_file, text=True)
 
         # 2. Launch Key Guard Beta
@@ -44,7 +45,8 @@ class TestA2ASecureNetP2P(unittest.TestCase):
             "-port", "8002",
             "-name", "beta",
             "-endpoint", "http://localhost:8002",
-            "-datadir", cls.data_dir
+            "-datadir", cls.data_dir,
+            "-legacy-mode"
         ], stdout=cls.beta_log_file, stderr=cls.beta_log_file, text=True)
 
         # Give them some time to initialize

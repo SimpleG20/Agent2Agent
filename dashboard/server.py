@@ -26,25 +26,77 @@ def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
 
+def load_issuers_registry():
+    path = os.path.join(DATA_DIR, "issuers.json")
+    if not os.path.exists(path):
+        default_issuers = {"main-ca": 9999}
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(default_issuers, f, indent=4)
+        return default_issuers
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {"main-ca": 9999}
+
+def save_issuers_registry(registry):
+    path = os.path.join(DATA_DIR, "issuers.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(registry, f, indent=4)
+
 def load_agents_registry():
     path = os.path.join(DATA_DIR, "agents.json")
     if not os.path.exists(path):
-        default_registry = {"alfa": 8001, "beta": 8002}
+        default_registry = {
+            "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
+            "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+        }
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             json.dump(default_registry, f, indent=4)
         return default_registry
     try:
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        migrated = False
+        for name, val in list(data.items()):
+            if isinstance(val, int):
+                data[name] = {
+                    "port": val,
+                    "issuer": "main-ca",
+                    "skills": ["messaging", "task-execution", "credential-verification"]
+                }
+                migrated = True
+        if migrated:
+            save_agents_registry(data)
+        return data
     except Exception:
-        return {"alfa": 8001, "beta": 8002}
+        return {
+            "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
+            "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+        }
 
 def save_agents_registry(registry):
     path = os.path.join(DATA_DIR, "agents.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         json.dump(registry, f, indent=4)
+
+def get_all_ca_dids():
+    dids = []
+    issuers = load_issuers_registry()
+    for name, port in issuers.items():
+        try:
+            r = requests.get(f"http://localhost:{port}/ca/info", timeout=0.8)
+            if r.status_code == 200:
+                did = r.json().get("did", "")
+                if did:
+                    dids.append(did)
+        except Exception:
+            pass
+    return dids
 
 def get_db_data(db_path, query, params=()):
     if not os.path.exists(db_path):
@@ -71,13 +123,41 @@ def get_json_file(file_path):
 
 def start_key_guards():
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
-    registry = load_agents_registry()
+    ca_bin = os.path.join(PROJECT_DIR, "credential-authority", "credential-authority")
     
+    # 1. Start issuers
+    issuers = load_issuers_registry()
+    for name, port in issuers.items():
+        proc_key = f"ca_{name}"
+        if not is_port_in_use(port) and subprocesses_dict.get(proc_key) is None:
+            print(f"Starting CA {name} on port {port}...")
+            os.makedirs(os.path.join(DATA_DIR, "issuers", name), exist_ok=True)
+            log_file = open(os.path.join(DATA_DIR, f"ca_{name}.log"), "w")
+            cmd = [
+                ca_bin,
+                "-port", str(port),
+                "-name", name,
+                "-datadir", os.path.join(DATA_DIR, "issuers", name)
+            ]
+            subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
+            time.sleep(0.5)
+
+    # 2. Start Key Guards
+    registry = load_agents_registry()
     started_any = False
-    for name, port in registry.items():
+    trusted_dids = get_all_ca_dids()
+    for name, agent_info in registry.items():
+        port = agent_info["port"]
+        issuer_name = agent_info.get("issuer", "main-ca")
+        skills = agent_info.get("skills", [])
+        
+        # Get issuer port
+        issuer_port = issuers.get(issuer_name, 9999)
+        agent_ca_url = f"http://localhost:{issuer_port}"
+        
         proc_key = f"key_guard_{name}"
         if not is_port_in_use(port) and subprocesses_dict.get(proc_key) is None:
-            print(f"Starting {name} Key Guard on port {port}...")
+            print(f"Starting {name} Key Guard on port {port} using CA {issuer_name} ({agent_ca_url})...")
             os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
             log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
             cmd = [
@@ -86,9 +166,13 @@ def start_key_guards():
                 "-name", name,
                 "-endpoint", f"http://localhost:{port}",
                 "-datadir", DATA_DIR,
-                "-ca-url", CA_URL,
+                "-ca-url", agent_ca_url,
                 "-ca-enabled",
             ]
+            if skills:
+                cmd.extend(["-skills", ",".join(skills)])
+            if trusted_dids:
+                cmd.extend(["-trusted-issuers", ",".join(trusted_dids)])
             subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
             started_any = True
 
@@ -109,7 +193,8 @@ def status():
     registry = load_agents_registry()
     agents_status = {}
     
-    for name, port in registry.items():
+    for name, agent_info in registry.items():
+        port = agent_info["port"]
         # Check active status of Key Guard
         online = is_port_in_use(port)
 
@@ -182,7 +267,7 @@ def send_message():
     if sender not in registry:
         return jsonify({"error": f"Remetente {sender} não encontrado"}), 404
         
-    port = registry[sender]
+    port = registry[sender]["port"]
     agent = CognitiveAgent(sender, f"http://localhost:{port}", data_dir=DATA_DIR)
     
     res = agent.tool_send_message(to_did=recipient, content=content)
@@ -199,7 +284,7 @@ def poll_inbox():
     if name not in registry:
         return jsonify({"error": f"Agente {name} não encontrado"}), 404
         
-    port = registry[name]
+    port = registry[name]["port"]
     agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
     
     messages = agent.tool_read_inbox()
@@ -218,7 +303,7 @@ def trigger_handshake():
     if sender not in registry:
         return jsonify({"error": f"Remetente {sender} não encontrado"}), 404
 
-    port = registry[sender]
+    port = registry[sender]["port"]
     try:
         r = requests.post(f"http://localhost:{port}/handshake-peer", json={"target_endpoint": target_endpoint}, timeout=5)
         if r.status_code == 200:
@@ -238,18 +323,26 @@ def create_agent():
     if not name.isalnum():
         return jsonify({"error": "Nome do agente deve ser alfanumérico"}), 400
 
+    issuer = data.get("issuer", "main-ca")
+    skills = data.get("skills", [])
+
     registry = load_agents_registry()
     if name in registry:
         return jsonify({"error": f"Agente {name} já existe"}), 400
 
-    # Allocate port dynamically (scanning starting from 8003)
+    # Allocate port dynamically
     port = 8003
+    used_ports = [a["port"] for a in registry.values()]
     while True:
-        if port not in registry.values() and not is_port_in_use(port):
+        if port not in used_ports and not is_port_in_use(port):
             break
         port += 1
 
-    registry[name] = port
+    registry[name] = {
+        "port": port,
+        "issuer": issuer,
+        "skills": skills
+    }
     save_agents_registry(registry)
 
     # Spawn process
@@ -258,15 +351,27 @@ def create_agent():
     
     os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
     log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
-    subprocesses_dict[proc_key] = subprocess.Popen([
+    
+    issuers = load_issuers_registry()
+    issuer_port = issuers.get(issuer, 9999)
+    agent_ca_url = f"http://localhost:{issuer_port}"
+
+    cmd = [
         key_guard_bin,
         "-port", str(port),
         "-name", name,
         "-endpoint", f"http://localhost:{port}",
         "-datadir", DATA_DIR,
-        "-ca-url", CA_URL,
+        "-ca-url", agent_ca_url,
         "-ca-enabled",
-    ], stdout=log_file, stderr=log_file, text=True)
+    ]
+    if skills:
+        cmd.extend(["-skills", ",".join(skills)])
+    trusted_dids = get_all_ca_dids()
+    if trusted_dids:
+        cmd.extend(["-trusted-issuers", ",".join(trusted_dids)])
+
+    subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
     
     # Wait for initialization
     time.sleep(2)
@@ -339,7 +444,7 @@ def remove_from_blacklist():
     if name not in registry:
         return jsonify({"error": f"Agente {name} não encontrado"}), 404
         
-    port = registry[name]
+    port = registry[name]["port"]
     
     # 1. Remove from SQLite (Cognitive layer)
     agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
@@ -386,7 +491,7 @@ def db_view():
 
     return jsonify({
         "name": name,
-        "port": registry[name],
+        "port": registry[name]["port"],
         "public_key": pub_key,
         "tx_history": tx_history,
         "cognitive_blacklist": cognitive_blacklist,
@@ -397,11 +502,24 @@ def db_view():
 @app.route("/api/ca/status")
 def ca_status():
     """Returns CA status: online/offline, public key, VC counts."""
+    issuer_name = request.args.get("issuer", "main-ca")
+    issuers = load_issuers_registry()
+    if issuer_name not in issuers:
+        return jsonify({"online": False, "error": f"Issuer {issuer_name} not registered"})
+    
+    issuer_port = issuers[issuer_name]
+    ca_url = f"http://localhost:{issuer_port}"
     try:
-        r = requests.get(f"{CA_URL}/ca/info", timeout=2)
+        r = requests.get(f"{ca_url}/ca/info", timeout=2)
         if r.status_code == 200:
             info = r.json()
-            return jsonify({"online": True, "did_key": info.get("did", ""), "public_key": info.get("publicKeyBase64", ""), "total_issued": info.get("totalIssued", 0), "total_revoked": info.get("totalRevoked", 0)})
+            return jsonify({
+                "online": True, 
+                "did_key": info.get("did", ""), 
+                "public_key": info.get("publicKeyBase64", ""), 
+                "total_issued": info.get("totalIssued", 0), 
+                "total_revoked": info.get("totalRevoked", 0)
+            })
         return jsonify({"online": False, "error": f"CA returned {r.status_code}"})
     except Exception as e:
         return jsonify({"online": False, "error": str(e)})
@@ -409,8 +527,15 @@ def ca_status():
 @app.route("/api/ca/credentials")
 def ca_credentials():
     """Returns list of all credentials issued by the CA."""
+    issuer_name = request.args.get("issuer", "main-ca")
+    issuers = load_issuers_registry()
+    if issuer_name not in issuers:
+        return jsonify({"error": f"Issuer {issuer_name} not registered", "credentials": []})
+        
+    issuer_port = issuers[issuer_name]
+    ca_url = f"http://localhost:{issuer_port}"
     try:
-        r = requests.get(f"{CA_URL}/credential/list", timeout=2)
+        r = requests.get(f"{ca_url}/credential/list", timeout=2)
         if r.status_code == 200:
             return jsonify(r.json())
         return jsonify({"error": f"CA returned {r.status_code}", "credentials": []})
@@ -429,9 +554,20 @@ def revoke_credential():
     if not credential_id:
         return jsonify({"error": "Credential ID required"}), 400
 
+    registry = load_agents_registry()
+    agent_info = registry.get(agent_name)
+    if agent_info:
+        issuer_name = agent_info.get("issuer", "main-ca")
+    else:
+        issuer_name = "main-ca"
+        
+    issuers = load_issuers_registry()
+    issuer_port = issuers.get(issuer_name, 9999)
+    ca_url = f"http://localhost:{issuer_port}"
+
     # Revoke via CA (CA expects camelCase credentialId)
     try:
-        r = requests.post(f"{CA_URL}/credential/revoke", json={"credentialId": credential_id}, timeout=5)
+        r = requests.post(f"{ca_url}/credential/revoke", json={"credentialId": credential_id}, timeout=5)
         if r.status_code == 200:
             return jsonify({"status": "revoked", "credential_id": credential_id})
         else:
@@ -448,7 +584,7 @@ def agent_card_view():
     registry = load_agents_registry()
     if name not in registry:
         return jsonify({"error": f"Agent {name} not found"}), 404
-    port = registry[name]
+    port = registry[name]["port"]
     try:
         r = requests.get(f"http://localhost:{port}/.well-known/agent-card", timeout=3)
         if r.status_code == 200:
@@ -466,11 +602,9 @@ def tasks_list():
     registry = load_agents_registry()
     if name not in registry:
         return jsonify({"error": f"Agent {name} not found"}), 404
-    port = registry[name]
+    port = registry[name]["port"]
     tasks = []
     try:
-        # Fetch all tasks via the task store endpoint
-        # For now, list known tasks from task store
         r = requests.get(f"http://localhost:{port}/a2a/tasks/list", timeout=3)
         if r.status_code == 200:
             tasks = r.json().get("tasks", [])
@@ -488,7 +622,7 @@ def credential_request_issue():
     registry = load_agents_registry()
     if name not in registry:
         return jsonify({"error": f"Agent {name} not found"}), 404
-    port = registry[name]
+    port = registry[name]["port"]
     try:
         r = requests.post(f"http://localhost:{port}/credential/request-issue", json={}, timeout=5)
         if r.status_code == 200:
@@ -497,9 +631,149 @@ def credential_request_issue():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/issuers", methods=["GET"])
+def list_issuers():
+    """Lists all registered issuers (CAs) and their statuses."""
+    issuers = load_issuers_registry()
+    agents = load_agents_registry()
+    result = []
+    for name, port in issuers.items():
+        online = is_port_in_use(port)
+        did = ""
+        total_issued = 0
+        total_revoked = 0
+        if online:
+            try:
+                r = requests.get(f"http://localhost:{port}/ca/info", timeout=2)
+                if r.status_code == 200:
+                    info = r.json()
+                    did = info.get("did", "")
+                    total_issued = info.get("totalIssued", 0)
+                    total_revoked = info.get("totalRevoked", 0)
+            except:
+                pass
+        
+        # Check if issuer is used by any agent
+        in_use_by = [agent_name for agent_name, info in agents.items() if info.get("issuer") == name]
+        
+        result.append({
+            "name": name,
+            "port": port,
+            "did": did,
+            "online": online,
+            "total_issued": total_issued,
+            "total_revoked": total_revoked,
+            "in_use": len(in_use_by) > 0,
+            "in_use_by": in_use_by
+        })
+    return jsonify({"issuers": result})
+
+@app.route("/api/issuers/create", methods=["POST"])
+def create_issuer():
+    """Spawns a new Credential Authority (Issuer)."""
+    data = request.json or {}
+    name = data.get("name", "").strip().lower()
+    if not name:
+        return jsonify({"error": "Nome do emissor é obrigatório"}), 400
+    if not name.isalnum():
+        return jsonify({"error": "Nome do emissor deve ser alfanumérico"}), 400
+    
+    issuers = load_issuers_registry()
+    if name in issuers:
+        return jsonify({"error": f"Emissor {name} já existe"}), 400
+    
+    # Allocate port dynamically
+    port = 9901
+    used_ports = list(issuers.values())
+    agents = load_agents_registry()
+    used_ports.extend([a["port"] for a in agents.values()])
+    while True:
+        if port not in used_ports and not is_port_in_use(port):
+            break
+        port += 1
+        
+    issuers[name] = port
+    save_issuers_registry(issuers)
+    
+    # Spawn process
+    ca_bin = os.path.join(PROJECT_DIR, "credential-authority", "credential-authority")
+    proc_key = f"ca_{name}"
+    
+    os.makedirs(os.path.join(DATA_DIR, "issuers", name), exist_ok=True)
+    log_file = open(os.path.join(DATA_DIR, f"ca_{name}.log"), "w")
+    subprocesses_dict[proc_key] = subprocess.Popen([
+        ca_bin,
+        "-port", str(port),
+        "-name", name,
+        "-datadir", os.path.join(DATA_DIR, "issuers", name)
+    ], stdout=log_file, stderr=log_file, text=True)
+    
+    # Wait for initialization
+    time.sleep(1.5)
+    
+    # Verify startup
+    if subprocesses_dict[proc_key].poll() is not None:
+        del issuers[name]
+        save_issuers_registry(issuers)
+        if proc_key in subprocesses_dict:
+            del subprocesses_dict[proc_key]
+        return jsonify({"error": f"Falha ao iniciar Emissor {name}. Verifique os logs."}), 500
+        
+    return jsonify({"status": "created", "name": name, "port": port})
+
+@app.route("/api/issuers/delete", methods=["POST"])
+def delete_issuer():
+    """Terminates and deletes an issuer CA."""
+    data = request.json or {}
+    name = data.get("name", "").strip().lower()
+    if not name:
+        return jsonify({"error": "Nome do emissor é obrigatório"}), 400
+    if name == "main-ca":
+        return jsonify({"error": "Não é possível excluir o emissor principal"}), 400
+        
+    issuers = load_issuers_registry()
+    if name not in issuers:
+        return jsonify({"error": f"Emissor {name} não existe"}), 404
+        
+    # Check if in use
+    agents = load_agents_registry()
+    in_use_by = [agent_name for agent_name, info in agents.items() if info.get("issuer") == name]
+    if in_use_by:
+        return jsonify({"error": f"Não é possível excluir o emissor pois ele está em uso pelo(s) agente(s): {', '.join(in_use_by)}"}), 400
+        
+    # Terminate process
+    proc_key = f"ca_{name}"
+    proc = subprocesses_dict.get(proc_key)
+    if proc:
+        proc.terminate()
+        proc.wait()
+        del subprocesses_dict[proc_key]
+        
+    # Remove from registry
+    del issuers[name]
+    save_issuers_registry(issuers)
+    
+    # Delete files
+    ca_dir = os.path.join(DATA_DIR, "issuers", name)
+    if os.path.exists(ca_dir):
+        try:
+            shutil.rmtree(ca_dir)
+        except Exception:
+            pass
+            
+    # Clean log file
+    log_path = os.path.join(DATA_DIR, f"ca_{name}.log")
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except Exception:
+            pass
+            
+    return jsonify({"status": "removed", "name": name})
+
 @app.route("/api/reset", methods=["POST"])
 def reset_system():
-    # Kill all running Key Guards
+    # Kill all running Key Guards and CAs
     for key in list(subprocesses_dict.keys()):
         proc = subprocesses_dict[key]
         if proc:
@@ -510,14 +784,24 @@ def reset_system():
                 pass
             subprocesses_dict[key] = None
 
-    # Force kill any hanging key-guard-bin
+    # Force kill any hanging processes
     try:
         subprocess.run(["pkill", "-f", "key-guard-bin"])
     except Exception:
         pass
+    try:
+        subprocess.run(["pkill", "-f", "credential-authority"])
+    except Exception:
+        pass
+
+    # Reset registry to default CAs
+    save_issuers_registry({"main-ca": 9999})
 
     # Reset registry to default alfa/beta
-    default_registry = {"alfa": 8001, "beta": 8002}
+    default_registry = {
+        "alfa": {"port": 8001, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]},
+        "beta": {"port": 8002, "issuer": "main-ca", "skills": ["messaging", "task-execution", "credential-verification"]}
+    }
     save_agents_registry(default_registry)
 
     # Clean data dir
@@ -527,6 +811,7 @@ def reset_system():
         except Exception:
             pass
     os.makedirs(DATA_DIR, exist_ok=True)
+    save_issuers_registry({"main-ca": 9999})
     save_agents_registry(default_registry)
 
     # Restart default Key Guards

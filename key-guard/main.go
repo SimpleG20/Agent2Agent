@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,29 +28,33 @@ import (
 )
 
 type Config struct {
-	Port       string
-	AgentName  string
-	DID        string // did:key:z... (new) or did:custom:<name> (legacy)
-	DIDKey     string // Always did:key:z... for crypto operations
-	Endpoint   string
-	DataDir    string
-	LegacyMode bool   // If true, still uses did:custom:<name> for backwards compat
-	CAURL      string // Credential Authority base URL
-	CAEnabled  bool   // Enable VC verification
+	Port           string
+	AgentName      string
+	DID            string // did:key:z... (new) or did:custom:<name> (legacy)
+	DIDKey         string // Always did:key:z... for crypto operations
+	Endpoint       string
+	DataDir        string
+	LegacyMode     bool   // If true, still uses did:custom:<name> for backwards compat
+	CAURL          string // Credential Authority base URL
+	CAEnabled      bool   // Enable VC verification
+	Skills         string // Comma-separated list of dynamic skill IDs
+	TrustedIssuers string // Comma-separated list of trusted issuer DIDs
 }
 
 type KeyGuardApp struct {
-	cfg        Config
-	privKey    ed25519.PrivateKey
-	pubKey     ed25519.PublicKey
-	x25519Key  *ecdh.PrivateKey // X25519 key for JWE decryption
-	peersStore *peers.PeersStore
-	blacklist  *blacklist.Blacklist
-	taskStore  *a2a.TaskStore
-	credStore  *credential.CredentialStore
-	crlCache   *credential.CRLCache
-	inbox      []*didcomm.DIDCommMessage
-	inboxMu    sync.Mutex
+	cfg            Config
+	privKey        ed25519.PrivateKey
+	pubKey         ed25519.PublicKey
+	x25519Key      *ecdh.PrivateKey // X25519 key for JWE decryption
+	peersStore     *peers.PeersStore
+	blacklist      *blacklist.Blacklist
+	taskStore      *a2a.TaskStore
+	credStore      *credential.CredentialStore
+	crlCache       *credential.CRLCache
+	inbox          []*didcomm.DIDCommMessage
+	inboxMu        sync.Mutex
+	skills         []agentcard.Skill // Parsed dynamic skills
+	trustedIssuers map[string]bool   // Map of trusted issuer DIDs
 }
 
 func main() {
@@ -60,18 +65,22 @@ func main() {
 	legacyMode := flag.Bool("legacy-mode", false, "Use did:custom: instead of did:key: for backwards compat")
 	caURL := flag.String("ca-url", "http://localhost:9001", "Credential Authority base URL")
 	caEnabled := flag.Bool("ca-enabled", false, "Enable agent credential verification")
+	skills := flag.String("skills", "", "Comma-separated list of dynamic skill IDs")
+	trustedIssuers := flag.String("trusted-issuers", "", "Comma-separated list of trusted issuer DIDs")
 	flag.Parse()
 
 	cfg := Config{
-		Port:       *port,
-		AgentName:  *agentName,
-		DID:        "did:custom:" + *agentName, // placeholder, updated after key generation
-		DIDKey:     "",
-		Endpoint:   *endpoint,
-		DataDir:    *dataDir,
-		LegacyMode: *legacyMode,
-		CAURL:      *caURL,
-		CAEnabled:  *caEnabled,
+		Port:           *port,
+		AgentName:      *agentName,
+		DID:            "did:custom:" + *agentName, // placeholder, updated after key generation
+		DIDKey:         "",
+		Endpoint:       *endpoint,
+		DataDir:        *dataDir,
+		LegacyMode:     *legacyMode,
+		CAURL:          *caURL,
+		CAEnabled:      *caEnabled,
+		Skills:         *skills,
+		TrustedIssuers: *trustedIssuers,
 	}
 
 	app, err := InitializeApp(cfg)
@@ -193,8 +202,8 @@ func InitializeApp(cfg Config) (*KeyGuardApp, error) {
 		return nil, fmt.Errorf("failed to init credential store: %w", err)
 	}
 
-	// 8. Initialize CRL Cache with 5-minute TTL
-	crlCache := credential.NewCRLCache(cfg.CAURL, 5*time.Minute)
+	// 8. Initialize CRL Cache with 5-second TTL
+	crlCache := credential.NewCRLCache(cfg.CAURL, 5*time.Second)
 
 	// 9. If CA enabled, fetch CA info and always request a fresh VC
 	if cfg.CAEnabled {
@@ -217,17 +226,32 @@ func InitializeApp(cfg Config) (*KeyGuardApp, error) {
 		}
 	}
 
+	parsedSkills := agentcard.ParseSkills(cfg.Skills)
+
+	trustedMap := make(map[string]bool)
+	if cfg.TrustedIssuers != "" {
+		parts := strings.Split(cfg.TrustedIssuers, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				trustedMap[part] = true
+			}
+		}
+	}
+
 	return &KeyGuardApp{
-		cfg:        cfg,
-		privKey:    priv,
-		pubKey:     pub,
-		x25519Key:  x25519Key,
-		peersStore: peersStore,
-		blacklist:  bl,
-		taskStore:  taskStore,
-		credStore:  credStore,
-		crlCache:   crlCache,
-		inbox:      make([]*didcomm.DIDCommMessage, 0),
+		cfg:            cfg,
+		privKey:        priv,
+		pubKey:         pub,
+		x25519Key:      x25519Key,
+		peersStore:     peersStore,
+		blacklist:      bl,
+		taskStore:      taskStore,
+		credStore:      credStore,
+		crlCache:       crlCache,
+		inbox:          make([]*didcomm.DIDCommMessage, 0),
+		skills:         parsedSkills,
+		trustedIssuers: trustedMap,
 	}, nil
 }
 
@@ -255,6 +279,29 @@ func (app *KeyGuardApp) handleHandshake(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("cannot handshake with blacklisted peer: %s", peerInfo.DID)})
 		return
+	}
+
+	// Verify own and peer credentials if CA is enabled
+	if app.cfg.CAEnabled {
+		if err := app.verifyOwnCredential(); err != nil {
+			log.Printf("[%s] Rejecting handshake request: local agent credential invalid: %v", app.cfg.AgentName, err)
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("local agent credential invalid: %v", err)})
+			return
+		}
+		if peerInfo.CredentialVC != nil {
+			if err := app.verifyPeerCredential(peerInfo.CredentialVC, peerInfo.DID); err != nil {
+				log.Printf("[%s] Rejecting handshake request: partner %s credential invalid: %v", app.cfg.AgentName, peerInfo.DID, err)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("partner credential invalid: %v", err)})
+				return
+			}
+		} else {
+			log.Printf("[%s] Rejecting handshake request: partner %s provided no credential", app.cfg.AgentName, peerInfo.DID)
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "credential required but not provided"})
+			return
+		}
 	}
 
 	// Save peer
@@ -302,6 +349,16 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// If CA is enabled, verify own credential first before initiating
+	if app.cfg.CAEnabled {
+		if err := app.verifyOwnCredential(); err != nil {
+			log.Printf("[%s] Cannot initiate handshake: local agent credential invalid: %v", app.cfg.AgentName, err)
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Cannot initiate handshake: local agent credential invalid: %v", err)})
+			return
+		}
+	}
+
 	pubKeyB64 := base64.StdEncoding.EncodeToString(app.pubKey)
 	x25519PubB64 := base64.StdEncoding.EncodeToString(app.x25519Key.PublicKey().Bytes())
 	myInfo := peers.PeerInfo{
@@ -326,7 +383,7 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	// Try VC handshake first if CA is enabled
 	usingVCHandshake := false
 	handshakeEndpoint := "/handshake"
-	if app.cfg.CAEnabled && app.credStore.GetOwnVC() != nil {
+	if app.cfg.CAEnabled {
 		handshakeEndpoint = "/handshake-vc"
 		usingVCHandshake = true
 	}
@@ -363,7 +420,7 @@ func (app *KeyGuardApp) handleHandshakePeer(w http.ResponseWriter, r *http.Reque
 	// Verify partner's VC if using VC handshake path
 	if usingVCHandshake && app.cfg.CAEnabled {
 		if partnerInfo.CredentialVC != nil && app.credStore.GetCAPublicKey() != nil {
-			if err := app.verifyPeerCredential(partnerInfo.CredentialVC); err != nil {
+			if err := app.verifyPeerCredential(partnerInfo.CredentialVC, partnerInfo.DID); err != nil {
 				log.Printf("[%s] Rejecting handshake: partner %s credential invalid: %v", app.cfg.AgentName, partnerInfo.DID, err)
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Partner credential invalid: %v", err)})
@@ -481,7 +538,7 @@ func (app *KeyGuardApp) handleSendMessage(w http.ResponseWriter, r *http.Request
 
 	// 3. Verify recipient's VC if CA is enabled and peer provided one
 	if app.cfg.CAEnabled && peer.CredentialVC != nil && app.credStore.GetCAPublicKey() != nil {
-		if err := app.verifyPeerCredential(peer.CredentialVC); err != nil {
+		if err := app.verifyPeerCredential(peer.CredentialVC, req.ToDID); err != nil {
 			log.Printf("[%s] Rejecting send: peer %s credential invalid: %v", app.cfg.AgentName, req.ToDID, err)
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Peer credential invalid: %v", err)})
@@ -663,7 +720,7 @@ func (app *KeyGuardApp) handleReceiveMessage(w http.ResponseWriter, r *http.Requ
 
 	// 3. Verify sender's VC if CA is enabled and credential is present
 	if app.cfg.CAEnabled && peer.CredentialVC != nil && app.credStore.GetCAPublicKey() != nil {
-		if err := app.verifyPeerCredential(peer.CredentialVC); err != nil {
+		if err := app.verifyPeerCredential(peer.CredentialVC, senderDID); err != nil {
 			log.Printf("[%s] Rejecting message: sender %s credential invalid: %v", app.cfg.AgentName, senderDID, err)
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Sender credential invalid: %v", err)})
@@ -1061,7 +1118,7 @@ func (app *KeyGuardApp) handleAgentCard(w http.ResponseWriter, r *http.Request) 
 		app.cfg.DID,
 		"",
 		app.cfg.Endpoint,
-		agentcard.DefaultSkills(),
+		app.skills,
 	)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1194,18 +1251,27 @@ func (app *KeyGuardApp) handleHandshakeVC(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Verify peer's VC if present and CA is enabled
-	if peerInfo.CredentialVC != nil && app.cfg.CAEnabled {
-		if err := app.verifyPeerCredential(peerInfo.CredentialVC); err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("credential verification failed: %v", err)})
+	// Verify own and peer credentials if CA is enabled
+	if app.cfg.CAEnabled {
+		if err := app.verifyOwnCredential(); err != nil {
+			log.Printf("[%s] Rejecting VC handshake: local agent credential invalid: %v", app.cfg.AgentName, err)
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("local agent credential invalid: %v", err)})
 			return
 		}
-	} else if app.cfg.CAEnabled && !app.cfg.LegacyMode {
-		// In non-legacy mode, VCs are required
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "credential required from peer but not provided"})
-		return
+		if peerInfo.CredentialVC != nil {
+			if err := app.verifyPeerCredential(peerInfo.CredentialVC, peerInfo.DID); err != nil {
+				log.Printf("[%s] Rejecting VC handshake: partner %s credential invalid: %v", app.cfg.AgentName, peerInfo.DID, err)
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("credential verification failed: %v", err)})
+				return
+			}
+		} else {
+			log.Printf("[%s] Rejecting VC handshake: partner %s provided no credential", app.cfg.AgentName, peerInfo.DID)
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "credential required from peer but not provided"})
+			return
+		}
 	}
 
 	// Save peer
@@ -1239,10 +1305,50 @@ func (app *KeyGuardApp) handleHandshakeVC(w http.ResponseWriter, r *http.Request
 }
 
 // verifyPeerCredential unmarshals and locally verifies a peer's raw VC.
-func (app *KeyGuardApp) verifyPeerCredential(vcRaw json.RawMessage) error {
+// Crucially verifies that the VC's subject matches the presenting peer's DID (preventing credential theft).
+func (app *KeyGuardApp) verifyPeerCredential(vcRaw json.RawMessage, peerDID string) error {
 	var vc credential.VerifiableCredential
 	if err := json.Unmarshal(vcRaw, &vc); err != nil {
 		return fmt.Errorf("invalid credential format: %w", err)
+	}
+
+	// SSI Credential Ownership Check: Ensure the credential subject ID matches the presenting peer's DID
+	if vc.CredentialSubject.ID != peerDID {
+		return fmt.Errorf("credential subject DID %s does not match presenting peer DID %s", vc.CredentialSubject.ID, peerDID)
+	}
+
+	// SSI Trust Registry Check: Is the issuer trusted?
+	ownCADID := app.credStore.GetCADID()
+	isTrusted := (vc.Issuer == ownCADID && ownCADID != "") || app.trustedIssuers[vc.Issuer]
+	if !isTrusted {
+		return fmt.Errorf("issuer %s is not trusted", vc.Issuer)
+	}
+
+	// Resolve the issuer's public key from their DID
+	var issuerPub ed25519.PublicKey
+	if strings.HasPrefix(vc.Issuer, "did:key:z") {
+		pubBytes, err := crypto.ParseDIDKey(vc.Issuer)
+		if err != nil {
+			return fmt.Errorf("failed to parse issuer DID key: %w", err)
+		}
+		issuerPub = ed25519.PublicKey(pubBytes)
+	} else {
+		// Fallback to own CA public key
+		issuerPub = app.credStore.GetCAPublicKey()
+	}
+
+	if issuerPub == nil {
+		return fmt.Errorf("issuer public key not available")
+	}
+
+	return credential.VerifyCredentialLocally(&vc, issuerPub, app.crlCache)
+}
+
+// verifyOwnCredential verifies that the local agent holds a valid, unrevoked, and unexpired credential.
+func (app *KeyGuardApp) verifyOwnCredential() error {
+	ownVC := app.credStore.GetOwnVC()
+	if ownVC == nil {
+		return fmt.Errorf("no credential stored")
 	}
 
 	caPub := app.credStore.GetCAPublicKey()
@@ -1250,5 +1356,5 @@ func (app *KeyGuardApp) verifyPeerCredential(vcRaw json.RawMessage) error {
 		return fmt.Errorf("CA public key not available")
 	}
 
-	return credential.VerifyCredentialLocally(&vc, caPub, app.crlCache)
+	return credential.VerifyCredentialLocally(ownVC, caPub, app.crlCache)
 }

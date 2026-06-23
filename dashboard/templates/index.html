@@ -948,6 +948,31 @@
                 max-width: none !important;
             }
         }
+
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .skill-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            cursor: pointer;
+        }
+        .skill-checkbox-label input {
+            cursor: pointer;
+            width: 1rem;
+            height: 1rem;
+            accent-color: var(--accent-alfa);
+        }
     </style>
 </head>
 <body>
@@ -968,9 +993,11 @@
 
     <!-- CA Status Panel -->
     <section class="manager-panel" id="ca-panel">
-        <div class="manager-title" style="color: var(--text-main); display: flex; justify-content: space-between; align-items: center;">
+        <div class="manager-title" style="color: var(--text-main); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
             <span>🏛️ Autoridade de Credenciais (CA)</span>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <label class="info-label" style="margin: 0; font-size: 0.85rem;">Visualizar CA:</label>
+                <select id="ca-view-select" class="form-control" style="min-width: 150px; padding: 0.3rem; font-size: 0.85rem;" onchange="updateCAStatus()"></select>
                 <span class="info-label" id="ca-stats" style="font-size: 0.8rem;"></span>
             </div>
         </div>
@@ -1009,18 +1036,99 @@
                 </div>
             </div>
         </div>
+        <!-- Issuer Management Section -->
+        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+            <div class="section-title" style="cursor: pointer;" onclick="toggleIssuersManagement()">
+                Gerenciar Emissores (CAs) <span id="ca-issuers-toggle">[+]</span>
+            </div>
+            <div id="ca-issuers-management" style="display: none; margin-top: 0.5rem;">
+                <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <input type="text" id="new-ca-name" class="form-control" placeholder="Nome da nova CA (ex: ca2)" style="flex: 1; max-width: 250px; padding: 0.4rem 0.6rem;">
+                    <button class="btn btn-secondary" onclick="createIssuer()" style="padding: 0.5rem 1rem;">Registrar CA</button>
+                </div>
+                <div class="table-container">
+                    <table class="db-table" id="issuers-table">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Porta</th>
+                                <th>DID</th>
+                                <th>Status</th>
+                                <th>Uso</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issuers-tbody">
+                            <tr><td colspan="6" class="table-empty">Carregando emissores...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- Orchestration and Creation Manager -->
     <section class="manager-panel">
         <div class="manager-title">Registro e orquestração de agentes</div>
-        <div class="manager-controls">
-            <div class="form-group-horizontal" style="display: flex; gap: 1rem; align-items: center; width: 100%;">
-                <input type="text" id="new-agent-name" class="form-control" placeholder="Nome do novo agente (ex: gamma)" style="flex: 1; max-width: 300px;">
-                <button class="btn btn-primary-create" onclick="createNewAgent()">Criar agente e chaves</button>
+        <div class="manager-controls" style="display: flex; flex-direction: column; gap: 1rem; align-items: stretch; width: 100%;">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                <div class="form-group" style="flex: 1; min-width: 250px;">
+                    <label class="info-label" for="new-agent-name">Nome do Agente:</label>
+                    <input type="text" id="new-agent-name" class="form-control" placeholder="Nome (ex: gamma)">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 250px;">
+                    <label class="info-label" for="new-agent-issuer">Autoridade de Credencial (CA):</label>
+                    <select id="new-agent-issuer" class="form-control"></select>
+                </div>
             </div>
-            <div class="setup-text">
-                Criar um agente dinamicamente inicia um novo Key Guard Go em uma porta única, gerando seu par de chaves Ed25519 e configurando seu banco de dados.
+
+            <div class="form-group">
+                <label class="info-label">Habilidades do Agente (Skills):</label>
+                <div class="skills-grid">
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="messaging" checked>
+                        <span>Mensageria Segura</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="task-execution" checked>
+                        <span>Execução de Tarefas</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="credential-verification" checked>
+                        <span>Verificação de Credenciais</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="financial-analysis">
+                        <span>Análise Financeira</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="code-generation">
+                        <span>Geração de Código</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="data-mining">
+                        <span>Mineração de Dados</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="natural-language-processing">
+                        <span>NLP (Processamento Linguagem)</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="anomaly-detection">
+                        <span>Detecção de Anomalias</span>
+                    </label>
+                    <label class="skill-checkbox-label">
+                        <input type="checkbox" name="agent-skills" value="threat-hunting">
+                        <span>Caça a Ameaças</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; gap: 1rem;">
+                <button class="btn btn-primary-create" onclick="createNewAgent()" style="padding: 0.6rem 2rem;">Criar agente e chaves</button>
+                <div class="setup-text" style="font-size: 0.8rem; color: var(--text-muted); text-align: right;">
+                    O Key Guard será iniciado em uma porta livre com par de chaves Ed25519 e as chaves de rede registradas na CA selecionada.
+                </div>
             </div>
         </div>
     </section>
@@ -1444,8 +1552,10 @@
         async function loadCredentialsList() {
             const tbody = document.getElementById("ca-cred-tbody");
             if (!tbody) return;
+            const viewSelect = document.getElementById("ca-view-select");
+            const issuer = viewSelect ? viewSelect.value : "main-ca";
             try {
-                const resp = await fetch("/api/ca/credentials");
+                const resp = await fetch(`/api/ca/credentials?issuer=${issuer}`);
                 const data = await resp.json();
                 const creds = data.credentials || [];
                 if (creds.length === 0) {
@@ -1496,8 +1606,10 @@
         }
 
         async function updateCAStatus() {
+            const viewSelect = document.getElementById("ca-view-select");
+            const issuer = viewSelect ? viewSelect.value : "main-ca";
             try {
-                const resp = await fetch("/api/ca/status");
+                const resp = await fetch(`/api/ca/status?issuer=${issuer}`);
                 const ca = await resp.json();
                 const dot = document.getElementById("ca-status-dot");
                 const text = document.getElementById("ca-status-text");
@@ -1520,6 +1632,149 @@
                 const text = document.getElementById("ca-status-text");
                 if (dot) { dot.className = "status-dot inactive"; }
                 if (text) { text.innerText = "CA Offline"; }
+            }
+        }
+
+        let issuersListVisible = false;
+        function toggleIssuersManagement() {
+            const list = document.getElementById("ca-issuers-management");
+            const toggle = document.getElementById("ca-issuers-toggle");
+            if (list) {
+                issuersListVisible = !issuersListVisible;
+                list.style.display = issuersListVisible ? "block" : "none";
+                if (toggle) toggle.innerText = issuersListVisible ? "[-]" : "[+]";
+                if (issuersListVisible) loadIssuersList();
+            }
+        }
+
+        async function loadIssuersList() {
+            const tbody = document.getElementById("issuers-tbody");
+            if (!tbody) return;
+            try {
+                const resp = await fetch("/api/issuers");
+                const data = await resp.json();
+                const issuers = data.issuers || [];
+                tbody.innerHTML = "";
+                if (issuers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Nenhum emissor cadastrado</td></tr>';
+                    return;
+                }
+                issuers.forEach(issuer => {
+                    const tr = document.createElement("tr");
+                    const statusText = issuer.online ? "Online" : "Offline";
+                    const statusColor = issuer.online ? "var(--success)" : "var(--error)";
+                    const isMain = issuer.name === "main-ca";
+                    const deleteBtn = isMain ? '-' : `<button class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: var(--error); color: white;" onclick="deleteIssuerFromDashboard('${issuer.name}')" ${issuer.in_use ? 'disabled title="Em uso por agentes"' : ''}>Excluir</button>`;
+                    
+                    tr.innerHTML = `
+                        <td><strong>${issuer.name.toUpperCase()}</strong></td>
+                        <td><code>${issuer.port}</code></td>
+                        <td style="font-family: var(--font-code); font-size: 0.7rem;"><code>${issuer.did ? issuer.did.slice(0, 24) + '...' : '-'}</code></td>
+                        <td style="color: ${statusColor}; font-weight: 600; font-size: 0.8rem;">${statusText}</td>
+                        <td style="font-size: 0.8rem;">${issuer.in_use ? `Uso: ${issuer.in_use_by.join(', ')}` : 'Sem uso'}</td>
+                        <td>${deleteBtn}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Erro ao carregar emissores</td></tr>';
+            }
+        }
+
+        async function createIssuer() {
+            const input = document.getElementById("new-ca-name");
+            const name = input.value.trim().toLowerCase();
+            if (!name) {
+                showToast("Por favor, insira um nome de emissor válido", "warning");
+                return;
+            }
+            showToast(`Criando emissor ${name}...`, "warning");
+            try {
+                const response = await fetch("/api/issuers/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const res = await response.json();
+                if (res.status === "created") {
+                    showToast(`✅ Emissor CA ${res.name} criado na porta ${res.port}!`, "success");
+                    input.value = "";
+                    await updateCAStatusDropdowns();
+                    loadIssuersList();
+                } else {
+                    showToast(`Falha: ${res.error}`, "error");
+                }
+            } catch (err) {
+                showToast("Falha ao criar emissor", "error");
+            }
+        }
+
+        async function deleteIssuerFromDashboard(name) {
+            if (!confirm(`Tem certeza que deseja excluir o emissor ${name}?`)) return;
+            showToast(`Excluindo emissor ${name}...`, "warning");
+            try {
+                const response = await fetch("/api/issuers/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name })
+                });
+                const res = await response.json();
+                if (res.status === "removed") {
+                    showToast(`Emissor ${name} removido com sucesso`, "success");
+                    await updateCAStatusDropdowns();
+                    loadIssuersList();
+                } else {
+                    showToast(`Falha: ${res.error}`, "error");
+                }
+            } catch (err) {
+                showToast("Falha ao excluir emissor", "error");
+            }
+        }
+
+        async function updateCAStatusDropdowns() {
+            try {
+                const resp = await fetch("/api/issuers");
+                const data = await resp.json();
+                const issuers = data.issuers || [];
+                
+                // Update ca-view-select
+                const viewSelect = document.getElementById("ca-view-select");
+                if (viewSelect) {
+                    const currentVal = viewSelect.value || "main-ca";
+                    viewSelect.innerHTML = "";
+                    issuers.forEach(issuer => {
+                        const opt = document.createElement("option");
+                        opt.value = issuer.name;
+                        opt.innerText = issuer.name.toUpperCase();
+                        viewSelect.appendChild(opt);
+                    });
+                    // Restore value if still exists
+                    if (issuers.some(i => i.name === currentVal)) {
+                        viewSelect.value = currentVal;
+                    } else if (issuers.length > 0) {
+                        viewSelect.value = issuers[0].name;
+                    }
+                }
+                
+                // Update new-agent-issuer select
+                const agentIssuerSelect = document.getElementById("new-agent-issuer");
+                if (agentIssuerSelect) {
+                    const currentVal = agentIssuerSelect.value || "main-ca";
+                    agentIssuerSelect.innerHTML = "";
+                    issuers.forEach(issuer => {
+                        const opt = document.createElement("option");
+                        opt.value = issuer.name;
+                        opt.innerText = issuer.name.toUpperCase();
+                        agentIssuerSelect.appendChild(opt);
+                    });
+                    if (issuers.some(i => i.name === currentVal)) {
+                        agentIssuerSelect.value = currentVal;
+                    } else if (issuers.length > 0) {
+                        agentIssuerSelect.value = issuers[0].name;
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching issuers list", e);
             }
         }
 
@@ -1728,13 +1983,22 @@
                 showToast("Por favor, insira um nome de agente válido", "warning");
                 return;
             }
+
+            // Get selected CA
+            const issuerSelect = document.getElementById("new-agent-issuer");
+            const issuer = issuerSelect ? issuerSelect.value : "main-ca";
+
+            // Get selected skills
+            const checkboxes = document.querySelectorAll('input[name="agent-skills"]:checked');
+            const skills = Array.from(checkboxes).map(cb => cb.value);
+
             showToast(`Criando agente ${name} (gerando chaves Ed25519 + solicitando VC...`, "warning");
             
             try {
                 const response = await fetch("/api/agents/create", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name })
+                    body: JSON.stringify({ name, issuer, skills })
                 });
                 const res = await response.json();
                 if (res.status === "created") {
@@ -2193,11 +2457,13 @@
         setInterval(() => {
             updateStatus();
             updateCAStatus();
+            if (issuersListVisible) loadIssuersList();
         }, 2000);
         
         // Initial setup load
         (async () => {
             initTheme();
+            await updateCAStatusDropdowns();
             await updateStatus();
             await updateCAStatus();
             setTimeout(loadDatabaseView, 500);

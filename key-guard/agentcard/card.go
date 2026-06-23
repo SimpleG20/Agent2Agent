@@ -1,9 +1,7 @@
-// Package agentcard implements the A2A Agent Card specification.
-//
-// Agent Card is a well-known endpoint (/.well-known/agent-card) that
-// describes an agent's identity, capabilities, and authentication methods.
-// It follows the A2A Agent-to-Agent protocol discovery pattern.
 package agentcard
+
+import "strings"
+
 
 // AgentCard represents an A2A Agent Card for capability discovery.
 type AgentCard struct {
@@ -101,4 +99,70 @@ func DefaultSkills() []Skill {
 			Description: "Verificação de credenciais W3C com a Autoridade Certificadora",
 		},
 	}
+}
+
+// ParseSkills parses a comma-separated list of skill IDs and maps them to Skill structs.
+func ParseSkills(skillsStr string) []Skill {
+	if skillsStr == "" {
+		return DefaultSkills()
+	}
+	allMocks := map[string]Skill{
+		"messaging": {
+			ID:          "messaging",
+			Name:        "Messaging",
+			Description: "Envio e recebimento de mensagens P2P seguras",
+		},
+		"task-execution": {
+			ID:          "task-execution",
+			Name:        "Task Execution",
+			Description: "Execução de tarefas assíncronas com lifecycle completo",
+		},
+		"credential-verification": {
+			ID:          "credential-verification",
+			Name:        "Credential Verification",
+			Description: "Verificação de credenciais W3C com a Autoridade Certificadora",
+		},
+		"financial-analysis": {
+			ID:          "financial-analysis",
+			Name:        "Financial Analysis",
+			Description: "Análise financeira e projeção de investimentos",
+		},
+		"code-generation": {
+			ID:          "code-generation",
+			Name:        "Code Generation",
+			Description: "Desenvolvimento e revisão de código autônomo",
+		},
+		"data-mining": {
+			ID:          "data-mining",
+			Name:        "Data Mining",
+			Description: "Mineração de dados e extração de insights",
+		},
+		"natural-language-processing": {
+			ID:          "natural-language-processing",
+			Name:        "NLP",
+			Description: "Processamento de linguagem natural e tradução",
+		},
+		"anomaly-detection": {
+			ID:          "anomaly-detection",
+			Name:        "Anomaly Detection",
+			Description: "Detecção de anomalias em tráfego de rede",
+		},
+		"threat-hunting": {
+			ID:          "threat-hunting",
+			Name:        "Threat Hunting",
+			Description: "Busca ativa por ameaças e vulnerabilidades",
+		},
+	}
+	var result []Skill
+	parts := strings.Split(skillsStr, ",")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if s, ok := allMocks[p]; ok {
+			result = append(result, s)
+		}
+	}
+	if len(result) == 0 {
+		return DefaultSkills()
+	}
+	return result
 }

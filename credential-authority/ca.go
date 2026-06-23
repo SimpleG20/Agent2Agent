@@ -95,8 +95,8 @@ func (ca *CredentialAuthority) IssueCredential(agentDID, publicKeyMultibase, age
 	ca.mu.Lock()
 	defer ca.mu.Unlock()
 
-	// Reuse existing valid credential if one exists
-	if existing := ca.reg.FindByAgentDID(agentDID); existing != nil {
+	// Reuse existing valid credential if one exists and is not revoked
+	if existing := ca.reg.FindByAgentDID(agentDID); existing != nil && !ca.reg.IsRevoked(existing.ID) {
 		expDate, err := time.Parse(time.RFC3339, existing.ExpirationDate)
 		if err == nil && time.Now().Before(expDate) {
 			return existing, nil

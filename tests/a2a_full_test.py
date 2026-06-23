@@ -484,11 +484,11 @@ class TestA2AFullProtocol(unittest.TestCase):
         print("  PASSED")
 
     # ─────────────────────────────────────────────────
-    # Scenario 11: VC Revoked
+    # Scenario 11: VC Revoked & Reissued (TDD)
     # ─────────────────────────────────────────────────
     def test_11_vc_revoked(self):
-        """Agent with revoked VC is rejected."""
-        print("--- Test 11: VC Revoked ---")
+        """Agent with revoked VC is rejected, then can request a new one and succeed."""
+        print("--- Test 11: VC Revoked & Reissued ---")
         # Create a temporary agent to revoke
         import uuid
         temp_name = f"temp-{uuid.uuid4().hex[:6]}"
@@ -527,8 +527,8 @@ class TestA2AFullProtocol(unittest.TestCase):
             self.assertEqual(r_revoke.status_code, 200, f"Revocation failed: {r_revoke.text}")
             print(f"  VC revoked on CA")
 
-            # Wait for CRL propagation
-            time.sleep(1)
+            # Wait for CRL propagation (cache TTL is 5 seconds now)
+            time.sleep(6)
 
             # Verify CA reports it revoked
             r_crl = requests.get("http://localhost:9999/credential/crl", timeout=3)
@@ -539,9 +539,32 @@ class TestA2AFullProtocol(unittest.TestCase):
                           f"Credential {credential_id} not found in CRL. Entries: {revoked_ids}")
             print(f"  CRL contains revoked credential")
 
-            # Attempt handshake from temp to alfa
-            # Just try sending a message from alfa to temp (should fail)
-            print("  Revocation verified on CA")
+            # 1. Attempt handshake from temp (revoked) to alfa - must be rejected
+            resp_hs = requests.post("http://localhost:8010/handshake-peer", json={
+                "target_endpoint": "http://localhost:8001"
+            }, timeout=5)
+            self.assertNotEqual(resp_hs.status_code, 200, "Handshake should be rejected because temp VC is revoked")
+            print("  Rejection of revoked agent handshake verified")
+
+            # 2. Request re-issuance for temp agent via its Key Guard
+            r_reissue = requests.post("http://localhost:8010/credential/request-issue", json={}, timeout=5)
+            self.assertEqual(r_reissue.status_code, 200, f"Re-issue failed: {r_reissue.text}")
+            reissued = r_reissue.json()
+            new_vc = reissued["credential"]
+            new_credential_id = new_vc["id"]
+            self.assertNotEqual(new_credential_id, credential_id, "Should get a brand new VC ID")
+            print(f"  VC successfully re-issued: {new_credential_id[:30]}...")
+
+            # Wait for any cache refresh
+            time.sleep(1)
+
+            # 3. With a fresh VC, handshake from temp to alfa should now succeed!
+            resp_hs2 = requests.post("http://localhost:8010/handshake-peer", json={
+                "target_endpoint": "http://localhost:8001"
+            }, timeout=5)
+            self.assertEqual(resp_hs2.status_code, 200, f"Handshake should succeed with reissued VC: {resp_hs2.text}")
+            print(f"  Handshake succeeded after re-issuing VC!")
+
         finally:
             proc_temp.terminate()
             proc_temp.wait()
@@ -606,11 +629,11 @@ class TestA2AFullProtocol(unittest.TestCase):
         print("  PASSED")
 
     # ─────────────────────────────────────────────────
-    # Scenario 13: Uncredentialed Rejection
+    # Scenario 13: Uncredentialed & Theft Rejection
     # ─────────────────────────────────────────────────
     def test_13_uncredentialed_rejection(self):
-        """Agent without VC is rejected in VC handshake."""
-        print("--- Test 13: Uncredentialed Rejection ---")
+        """Agent without VC is rejected, and credential theft is blocked."""
+        print("--- Test 13: Uncredentialed & Theft Rejection ---")
 
         # Start Gamma without CA
         gamma_log = open(os.path.join(DATA_DIR, "gamma2_kg.log"), "w")
@@ -630,6 +653,9 @@ class TestA2AFullProtocol(unittest.TestCase):
             self.skipTest("Gamma-nocred KG could not start")
 
         try:
+            gamma_info = requests.get("http://localhost:8011/agent-info", timeout=3).json()
+            gamma_did = gamma_info["did"]
+
             # Attempt handshake from Alfa (has VC) to Gamma (no VC)
             resp = requests.post("http://localhost:8001/handshake-peer", json={
                 "target_endpoint": "http://localhost:8011"
@@ -640,11 +666,27 @@ class TestA2AFullProtocol(unittest.TestCase):
                                 "Uncredentialed agent should be rejected!")
             print(f"  Uncredentialed Gamma rejected: {resp.status_code}")
 
-            # Also verify the response mentions credential
-            error_body = resp.json().get("error", resp.text).lower()
-            cred_mentioned = ("credential" in error_body or "cred" in error_body
-                              or "unauthorized" in error_body)
-            print(f"  Rejection message mentions credential/missing: {cred_mentioned}")
+            # --- CREDENTIAL THEFT TEST ---
+            # Gamma (malicious) steals Beta's VC and tries to present it to Alfa
+            # Get Beta's VC first
+            r_beta_vc = requests.get("http://localhost:8002/credential", timeout=3).json()
+            beta_vc = r_beta_vc["credential"]
+
+            # Gamma sends handshake request to Alfa containing Beta's VC, but signing under Gamma's DID
+            pub_key_b64 = base64.b64encode(os.urandom(32)).decode("utf-8")
+            theft_payload = {
+                "did": gamma_did,
+                "did_key": gamma_did,
+                "public_key": pub_key_b64,
+                "endpoint": "http://localhost:8011",
+                "credential_vc": beta_vc,
+                "revoked": False
+            }
+            # Post directly to Alfa's handshake endpoint
+            resp_theft = requests.post("http://localhost:8001/handshake-vc", json=theft_payload, timeout=3)
+            self.assertNotEqual(resp_theft.status_code, 200, "Theft handshake should be rejected!")
+            print(f"  Theft handshake rejected successfully: {resp_theft.status_code} {resp_theft.text}")
+
         finally:
             proc_gamma.terminate()
             proc_gamma.wait()
@@ -656,34 +698,39 @@ class TestA2AFullProtocol(unittest.TestCase):
     # Scenario 14: Backwards Compatibility (Legacy)
     # ─────────────────────────────────────────────────
     def test_14_backwards_compatibility(self):
-        """Legacy /handshake and /handshake-peer still work."""
+        """Legacy /handshake requires a VC if CA is enabled."""
         print("--- Test 14: Backwards Compatibility ---")
 
-        # Legacy handshake uses the traditional /handshake endpoint directly
-        # We simulate a legacy agent by posting directly to /handshake
-        pub_key_b64 = base64.b64encode(
-            os.urandom(32)  # Fake key for testing
-        ).decode("utf-8")
+        pub_key_b64 = base64.b64encode(os.urandom(32)).decode("utf-8")
 
-        # The regular VC handshake should also work through /handshake
-        # (the old endpoint should still respond)
-        legacy_payload = {
+        # 1. Post legacy handshake without VC -> should fail since CA is enabled
+        legacy_payload_no_vc = {
             "did": "did:custom:legacy-test",
             "did_key": "did:custom:legacy-test",
             "public_key": pub_key_b64,
             "endpoint": "http://localhost:9999",
             "revoked": False
         }
+        resp_fail = requests.post("http://localhost:8001/handshake", json=legacy_payload_no_vc, timeout=3)
+        self.assertNotEqual(resp_fail.status_code, 200, "Legacy handshake without VC should fail when CA is enabled")
+        print("  Legacy handshake without VC rejected successfully")
 
-        resp = requests.post("http://localhost:8001/handshake",
-                             json=legacy_payload, timeout=3)
-        # Should get 200 with our info (even though it won't verify our VC
-        # because we have none, the legacy handler should still work)
-        self.assertEqual(resp.status_code, 200,
-                         f"Legacy handshake failed: {resp.status_code} {resp.text}")
-        response_data = resp.json()
-        self.assertIn("did", response_data)
-        print(f"  Legacy /handshake responds: {response_data.get('did', 'N/A')[:20]}...")
+        # 2. Get Alfa's own VC to use as a mock valid VC (representing a credentialed legacy peer)
+        r_alfa_vc = requests.get("http://localhost:8001/credential", timeout=3).json()
+        alfa_vc = r_alfa_vc["credential"]
+
+        # 3. Post legacy handshake with valid VC matching the DID -> should succeed
+        legacy_payload_with_vc = {
+            "did": self.alfa_did,
+            "did_key": self.alfa_did,
+            "public_key": self.alfa_info["public_key"],
+            "endpoint": "http://localhost:8001",
+            "credential_vc": alfa_vc,
+            "revoked": False
+        }
+        resp_success = requests.post("http://localhost:8002/handshake", json=legacy_payload_with_vc, timeout=3)
+        self.assertEqual(resp_success.status_code, 200, f"Legacy handshake with VC failed: {resp_success.status_code} {resp_success.text}")
+        print("  Legacy handshake with valid VC succeeded")
 
         # Verify all A2A endpoints still respond
         for path in ["/.well-known/agent-card",
@@ -702,6 +749,69 @@ class TestA2AFullProtocol(unittest.TestCase):
             self.assertIn(r.status_code, (200, 400),  # POST to GET task with wrong method returns 400
                           f"{path} not available: {r.status_code}")
         print("  All legacy and A2A endpoints responsive")
+        print("  PASSED")
+
+    # ─────────────────────────────────────────────────
+    # Scenario 15: Multiple Issuers (CAs)
+    # ─────────────────────────────────────────────────
+    def test_15_multiple_issuers(self):
+        """Handshake fails when agents use different CAs (untrusted issuers)."""
+        print("--- Test 15: Multiple Issuers (CAs) ---")
+        
+        # 1. Start a second CA (CA2) on port 9998
+        ca2_dir = os.path.join(DATA_DIR, "ca2")
+        os.makedirs(ca2_dir, exist_ok=True)
+        ca2_log = open(os.path.join(DATA_DIR, "ca2.log"), "w")
+        proc_ca2 = subprocess.Popen(
+            [CA_BIN, "-port", "9998", "-datadir", ca2_dir, "-name", "CA Two"],
+            stdout=ca2_log, stderr=ca2_log, text=True
+        )
+        time.sleep(1)
+
+        if proc_ca2.poll() is not None:
+            ca2_log.close()
+            self.skipTest("Second CA failed to start")
+
+        # 2. Start a temporary agent (temp-ca2) on port 8020, pointing to CA2
+        temp_dir = os.path.join(DATA_DIR, "temp-ca2")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_log = open(os.path.join(DATA_DIR, "temp-ca2.log"), "w")
+        proc_temp = subprocess.Popen([
+            KEY_GUARD_BIN,
+            "-port", "8020",
+            "-name", "temp-ca2",
+            "-endpoint", "http://localhost:8020",
+            "-datadir", temp_dir,
+            "-ca-url", "http://localhost:9998",
+            "-ca-enabled",
+        ], stdout=temp_log, stderr=temp_log, text=True)
+        time.sleep(1.5)
+
+        if proc_temp.poll() is not None:
+            proc_ca2.terminate()
+            proc_ca2.wait()
+            ca2_log.close()
+            temp_log.close()
+            self.skipTest("Temp-ca2 agent failed to start")
+
+        try:
+            # 3. Attempt handshake from Alfa (CA1) to Temp-ca2 (CA2)
+            resp = requests.post("http://localhost:8001/handshake-peer", json={
+                "target_endpoint": "http://localhost:8020"
+            }, timeout=5)
+
+            # This handshake should fail because Alfa does not trust CA2 (port 9998)
+            self.assertNotEqual(resp.status_code, 200, "Handshake should have been rejected due to CA trust mismatch")
+            print(f"  Handshake successfully rejected: {resp.status_code} {resp.text}")
+
+        finally:
+            proc_temp.terminate()
+            proc_temp.wait()
+            proc_ca2.terminate()
+            proc_ca2.wait()
+            ca2_log.close()
+            temp_log.close()
+
         print("  PASSED")
 
 
