@@ -30,7 +30,7 @@ from agent import CognitiveAgent
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 KEY_GUARD_BIN = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
-CA_BIN = os.path.join(PROJECT_DIR, "credential-authority", "credential-authority")
+CA_BIN = os.path.join(PROJECT_DIR, "credential-authority", "ca-bin")
 DATA_DIR = os.path.join(PROJECT_DIR, "data_e2e_test")
 
 
