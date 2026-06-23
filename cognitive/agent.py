@@ -48,7 +48,8 @@ class CognitiveAgent:
         self.db_path = os.path.join(data_dir, name, "cognitive_store.db")
         self.did = self._load_did_from_keyguard()
         if not self.did:
-            self.did = f"did:custom:{name}"  # fallback
+            self.did = ""  # unresolved — will warn on use
+            print(f"[{name.upper()} COGNITIVE] WARNING: could not resolve DID from Key Guard at {key_guard_url}")
 
         # Ensure directories exist
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
