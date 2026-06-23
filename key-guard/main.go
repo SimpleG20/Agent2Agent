@@ -1109,7 +1109,7 @@ func (app *KeyGuardApp) handleAgentInfo(w http.ResponseWriter, r *http.Request) 
 
 // --- Credential Endpoints ---
 
-// handleCredential returns the agent's own VC and CA status.
+// handleCredential returns the agent's own VC, CA status, and revocation status.
 // GET /credential
 func (app *KeyGuardApp) handleCredential(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1130,8 +1130,27 @@ func (app *KeyGuardApp) handleCredential(w http.ResponseWriter, r *http.Request)
 	}
 
 	caDID := app.credStore.GetCADID()
+	caPub := app.credStore.GetCAPublicKey()
+
+	// Check revocation status against cached CRL
+	valid := true
+	errMsg := ""
+	if app.cfg.CAEnabled && caPub != nil {
+		if err := credential.VerifyCredentialLocally(vc, caPub, app.crlCache); err != nil {
+			valid = false
+			errMsg = err.Error()
+		}
+	}
+
+	statusStr := "available"
+	if !valid {
+		statusStr = "revoked"
+	}
+
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":     "available",
+		"status":     statusStr,
+		"valid":      valid,
+		"error":      errMsg,
 		"credential": vc,
 		"ca_did":     caDID,
 		"ca_enabled": app.cfg.CAEnabled,

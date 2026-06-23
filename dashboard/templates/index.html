@@ -1633,12 +1633,18 @@
                     const vcActions = document.getElementById(`${name}-vc-actions`);
                     if (vcStatus) {
                         const cred = agent.credential || {};
-                        if (cred.status === "available" && cred.credential) {
+                        if (cred.status === "available" && cred.credential && cred.valid !== false) {
                             const vc = cred.credential;
                             vcStatus.innerHTML = 'Status: <span style="color: var(--success); font-weight: 600;">✅ Credencial Verificada</span>';
                             vcDetails.innerText = `ID: ${vc.id || vc.ID || "-"} | Exp: ${vc.expirationDate || vc.ExpirationDate || "-"}`;
                             if (vcActions) {
                                 vcActions.innerHTML = `<button class="btn" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; background: var(--error); color: white;" onclick="revokeCredential('${name}', '${vc.id || vc.ID || ""}')">Revogar Credencial</button>`;
+                            }
+                        } else if (cred.valid === false) {
+                            vcStatus.innerHTML = 'Status: <span style="color: var(--error); font-weight: 600;">🚫 Credencial Revogada</span>';
+                            vcDetails.innerText = `ID: ${cred.credential?.id || cred.credential?.ID || "-"} | Motivo: ${cred.error || "revogada"}`;
+                            if (vcActions) {
+                                vcActions.innerHTML = `<button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="requestCredential('${name}')">Solicitar Nova Credencial</button>`;
                             }
                         } else if (cred.status === "no_credential") {
                             vcStatus.innerHTML = 'Status: <span style="color: var(--warning); font-weight: 600;">⏳ Sem Credencial</span>';
