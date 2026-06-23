@@ -279,6 +279,40 @@ func (c *CRLCache) refresh() {
 	c.lastFetch = time.Now()
 }
 
+// ForceRefresh forcibly refreshes the CRL cache from the CA, ignoring TTL.
+func (c *CRLCache) ForceRefresh() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	resp, err := http.Get(fmt.Sprintf("%s/credential/crl", c.caURL))
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var result struct {
+		TotalRevoked int `json:"totalRevoked"`
+		Entries      []struct {
+			CredentialID string `json:"credentialId"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return
+	}
+
+	newRevoked := make(map[string]bool)
+	for _, entry := range result.Entries {
+		newRevoked[entry.CredentialID] = true
+	}
+	c.revoked = newRevoked
+	c.lastFetch = time.Now()
+}
+
 // --- CA Client Functions ---
 
 // FetchCAInfo retrieves the CA's DID and public key from its /ca/info endpoint.

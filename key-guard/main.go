@@ -103,6 +103,7 @@ func main() {
 	// Credential Endpoints
 	mux.HandleFunc("/credential", app.handleCredential)
 	mux.HandleFunc("/credential/request-issue", app.handleCredentialRequestIssue)
+	mux.HandleFunc("/credential/refresh-status", app.handleCredentialRefreshStatus)
 
 	// P2P Handshake Endpoints
 	mux.HandleFunc("/handshake", app.handleHandshake)
@@ -477,6 +478,17 @@ func (app *KeyGuardApp) handleSendMessage(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Recipient %s is revoked locally", req.ToDID)})
 		return
+	}
+
+	// 2.5 Verify own credential is still valid before sending
+	if app.cfg.CAEnabled && app.credStore.GetOwnVC() != nil {
+		app.crlCache.ForceRefresh()
+		if err := credential.VerifyCredentialLocally(app.credStore.GetOwnVC(), app.credStore.GetCAPublicKey(), app.crlCache); err != nil {
+			log.Printf("[%s] Own credential revoked! Blocking send: %v", app.cfg.AgentName, err)
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Own credential revoked: %v", err)})
+			return
+		}
 	}
 
 	// 3. Verify recipient's VC if CA is enabled and peer provided one
@@ -1123,6 +1135,56 @@ func (app *KeyGuardApp) handleCredential(w http.ResponseWriter, r *http.Request)
 		"credential": vc,
 		"ca_did":     caDID,
 		"ca_enabled": app.cfg.CAEnabled,
+	})
+}
+
+// handleCredentialRefreshStatus forces a CRL refresh and returns own VC status.
+// POST /credential/refresh-status
+func (app *KeyGuardApp) handleCredentialRefreshStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Force refresh CRL cache from CA
+	app.crlCache.ForceRefresh()
+
+	vc := app.credStore.GetOwnVC()
+	if vc == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     "no_credential",
+			"ca_enabled": app.cfg.CAEnabled,
+			"valid":      false,
+		})
+		return
+	}
+
+	caPub := app.credStore.GetCAPublicKey()
+	if caPub == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     "available",
+			"valid":      false,
+			"error":      "CA public key not available",
+			"credential": vc,
+		})
+		return
+	}
+
+	err := credential.VerifyCredentialLocally(vc, caPub, app.crlCache)
+	valid := err == nil
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "available",
+		"valid":      valid,
+		"error":      errMsg,
+		"credential": vc,
+		"ca_did":     app.credStore.GetCADID(),
 	})
 }
 
