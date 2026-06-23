@@ -75,6 +75,7 @@ func main() {
 	mux.HandleFunc("/credential/crl", handleCRL(ca))
 	mux.HandleFunc("/credential/list", handleListCredentials(ca))
 	mux.HandleFunc("/credential/status/", handleStatus(ca))
+	mux.HandleFunc("/admin/reset", handleReset(ca))
 
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("HTTP server listening on %s", addr)
@@ -241,6 +242,27 @@ func handleStatus(ca *CredentialAuthority) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, status)
+	}
+}
+
+// handleReset clears all issued credentials and CRL on the CA.
+func handleReset(ca *CredentialAuthority) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		if err := ca.Reset(); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"status":       "reset",
+			"totalIssued":  ca.TotalIssued(),
+			"totalRevoked": ca.TotalRevoked(),
+		})
 	}
 }
 

@@ -161,6 +161,11 @@ func (ca *CredentialAuthority) RevokeCredential(credentialID, reason string) err
 	return ca.reg.Revoke(credentialID, reason)
 }
 
+// Reset clears all issued credentials and the CRL.
+func (ca *CredentialAuthority) Reset() error {
+	return ca.reg.Reset()
+}
+
 // GetCRL returns the current Certificate Revocation List.
 func (ca *CredentialAuthority) GetCRL() []registry.RevokedEntry {
 	return ca.reg.GetCRL()

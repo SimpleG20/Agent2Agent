@@ -193,6 +193,15 @@ func (r *Registry) TotalRevoked() int {
 	return len(r.crl)
 }
 
+// Reset clears all issued credentials and the CRL, then persists.
+func (r *Registry) Reset() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.issued = []*credential.VerifiableCredential{}
+	r.crl = []RevokedEntry{}
+	return r.persist()
+}
+
 // GetStatus returns the status of a specific credential by ID.
 func (r *Registry) GetStatus(vcID string) (*StatusInfo, error) {
 	r.mu.RLock()
