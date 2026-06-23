@@ -487,18 +487,19 @@ class TestA2AFullProtocol(unittest.TestCase):
     # Scenario 11: VC Revoked
     # ─────────────────────────────────────────────────
     def test_11_vc_revoked(self):
-        """Agent with revoked VC is rejected."""
+        """Agent with revoked VC cannot send messages."""
         print("--- Test 11: VC Revoked ---")
         # Create a temporary agent to revoke
         import uuid
         temp_name = f"temp-{uuid.uuid4().hex[:6]}"
+        temp_port = 8010
 
         temp_log = open(os.path.join(DATA_DIR, f"{temp_name}_kg.log"), "w")
         proc_temp = subprocess.Popen([
             KEY_GUARD_BIN,
-            "-port", "8010",
+            "-port", str(temp_port),
             "-name", temp_name,
-            "-endpoint", f"http://localhost:8010",
+            "-endpoint", f"http://localhost:{temp_port}",
             "-datadir", DATA_DIR,
             "-ca-url", "http://localhost:9999",
             "-ca-enabled",
@@ -511,8 +512,15 @@ class TestA2AFullProtocol(unittest.TestCase):
             self.skipTest(f"Temporary agent {temp_name} could not start")
 
         try:
+            # Discover temp agent DID
+            r_info = requests.get(f"http://localhost:{temp_port}/agent-info", timeout=3)
+            self.assertEqual(r_info.status_code, 200)
+            temp_did = r_info.json().get("did", "")
+            self.assertTrue(temp_did.startswith("did:"), f"Temp agent has no valid DID: {temp_did}")
+            print(f"  Temp agent DID: {temp_did}")
+
             # Get its credential ID
-            r = requests.get("http://localhost:8010/credential", timeout=3)
+            r = requests.get(f"http://localhost:{temp_port}/credential", timeout=3)
             self.assertEqual(r.status_code, 200)
             cred = r.json()
             if cred["status"] != "available":
@@ -527,8 +535,13 @@ class TestA2AFullProtocol(unittest.TestCase):
             self.assertEqual(r_revoke.status_code, 200, f"Revocation failed: {r_revoke.text}")
             print(f"  VC revoked on CA")
 
-            # Wait for CRL propagation
-            time.sleep(1)
+            # Force refresh CRL on temp agent via new endpoint
+            r_refresh = requests.post(f"http://localhost:{temp_port}/credential/refresh-status", timeout=3)
+            self.assertEqual(r_refresh.status_code, 200)
+            refresh_data = r_refresh.json()
+            print(f"  Temp agent refresh-status: valid={refresh_data.get('valid')}")
+            self.assertFalse(refresh_data.get("valid", True),
+                             "Temp agent VC should be invalid after revocation")
 
             # Verify CA reports it revoked
             r_crl = requests.get("http://localhost:9999/credential/crl", timeout=3)
@@ -539,9 +552,30 @@ class TestA2AFullProtocol(unittest.TestCase):
                           f"Credential {credential_id} not found in CRL. Entries: {revoked_ids}")
             print(f"  CRL contains revoked credential")
 
-            # Attempt handshake from temp to alfa
-            # Just try sending a message from alfa to temp (should fail)
-            print("  Revocation verified on CA")
+            # Attempt to send a message from Alfa to temp agent
+            # Alfa should reject because its own credential is not revoked,
+            # but the temp agent's send should fail if we tried from temp.
+            # The key test: send FROM temp TO alfa should fail (temp's VC revoked)
+            # For that we need temp and alfa to have handshaked. Instead,
+            # force refresh alfa's CRL and verify alfa's VC is still valid
+            r_alfa_refresh = requests.post("http://localhost:8001/credential/refresh-status", timeout=3)
+            self.assertEqual(r_alfa_refresh.status_code, 200)
+            alfa_refresh = r_alfa_refresh.json()
+            self.assertTrue(alfa_refresh.get("valid", False),
+                            "Alfa's own VC should still be valid after other agent revocation")
+            print(f"  Alfa refresh-status: valid={alfa_refresh.get('valid')}")
+
+            # Try sending from temp (revoked) to alfa — should fail
+            fail_payload = {
+                "to_did": self.alfa_did,
+                "payload": {"content": "should be rejected"},
+                "type": "https://didcomm.org/basicmessage/2.0/message"
+            }
+            resp_fail = requests.post(f"http://localhost:{temp_port}/send-message",
+                                       json=fail_payload, timeout=3)
+            self.assertIn(resp_fail.status_code, [403, 401],
+                          f"Send should fail with 403/401, got {resp_fail.status_code}")
+            print(f"  Temp→Alfa send correctly rejected: {resp_fail.status_code}")
         finally:
             proc_temp.terminate()
             proc_temp.wait()

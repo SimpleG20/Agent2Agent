@@ -474,12 +474,27 @@ def revoke_credential():
     # Revoke via CA (CA expects camelCase credentialId)
     try:
         r = requests.post(f"{CA_URL}/credential/revoke", json={"credentialId": credential_id}, timeout=5)
-        if r.status_code == 200:
-            return jsonify({"status": "revoked", "credential_id": credential_id})
-        else:
+        if r.status_code != 200:
             return jsonify({"error": r.text}), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+    # Notify all agents to refresh their CRL cache immediately
+    registry = load_agents_registry()
+    notified = []
+    for agent_name, agent_port in registry.items():
+        try:
+            refresh_url = f"http://localhost:{agent_port}/credential/refresh-status"
+            requests.post(refresh_url, timeout=3)
+            notified.append(agent_name)
+        except Exception as e:
+            print(f"  [!] Failed to notify {agent_name}: {e}")
+
+    return jsonify({
+        "status": "revoked",
+        "credential_id": credential_id,
+        "agents_notified": notified
+    })
 
 @app.route("/api/agent-card")
 def agent_card_view():
