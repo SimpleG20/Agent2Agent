@@ -59,7 +59,7 @@ Uma interface rica construída com Vanilla CSS e Flask.
 
 ### A. Handshake de Identidade Soberana (P2P)
 
-Antes de trocar mensagens seguras, dois peeres trocam credenciais publicamente para registrar seus DIDs (`did:custom:<nome>`) e chaves públicas Ed25519 no catálogo `peers.json`.
+Antes de trocar mensagens seguras, dois peeres trocam credenciais publicamente para registrar seus DIDs (`did:key:<multicodec>`) e chaves públicas Ed25519 no catálogo `peers.json`.
 
 ```mermaid
 sequenceDiagram

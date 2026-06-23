@@ -127,8 +127,8 @@ Test 03 passed: Key Guard successfully blocked signature containing forbidden ke
 
 --- Test 04: Cognitive Anomaly Detection and P2P Revocation Circuit Breaker ---
 [ALFA COGNITIVE] ANOMALY DETECTED: Prompt injection attempt detected: 'ignore previous instructions'. Triggering local isolation.
-[ALFA COGNITIVE] Dispatching P2P revocation alert to did:custom:beta
-[ALFA COGNITIVE] Local blacklist updated: blocked did:custom:beta (Reason: Prompt injection attempt detected: 'ignore previous instructions')
+[ALFA COGNITIVE] Dispatching P2P revocation alert to did:key:z6Mk... (beta)
+[ALFA COGNITIVE] Local blacklist updated: blocked did:key:z6Mk... (Reason: Prompt injection attempt detected: 'ignore previous instructions')
 Waiting for Beta Key Guard to receive and cache the revocation (2s)...
 Test 04 P2P receive-message status code: 401
 Test 04 P2P receive-message response: {'error': 'Sender is blacklisted locally'}
