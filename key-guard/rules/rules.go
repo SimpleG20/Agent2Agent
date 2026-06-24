@@ -19,52 +19,22 @@ func ValidatePayload(jsonBytes []byte) error {
 		}
 	}
 
-	// Rule 2: Limit amount fields to <= 100.0
+	// Rule 2: Limit message content length to <= 100 characters
 	var data map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &data); err != nil {
-		// If it's not a JSON object, it's fine for simple strings, but we still scan strings.
-		return nil
-	}
-
-	if err := checkAmountLimit(data); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func checkAmountLimit(data map[string]interface{}) error {
-	for k, v := range data {
-		if strings.ToLower(k) == "amount" {
-			switch num := v.(type) {
-			case float64:
-				if num > 100.0 {
-					return fmt.Errorf("business rule violation: amount %f exceeds limit of 100.0", num)
-				}
-			case int:
-				if num > 100 {
-					return fmt.Errorf("business rule violation: amount %d exceeds limit of 100.0", num)
+	if err := json.Unmarshal(jsonBytes, &data); err == nil {
+		if contentVal, ok := data["content"]; ok {
+			if contentStr, ok := contentVal.(string); ok {
+				if len(contentStr) > 100 {
+					return fmt.Errorf("business rule violation: message content length (%d) exceeds limit of 100 characters", len(contentStr))
 				}
 			}
 		}
-
-		// Recurse into nested maps
-		if nestedMap, ok := v.(map[string]interface{}); ok {
-			if err := checkAmountLimit(nestedMap); err != nil {
-				return err
-			}
-		}
-
-		// Recurse into slices of maps
-		if sliceVal, ok := v.([]interface{}); ok {
-			for _, item := range sliceVal {
-				if itemMap, ok := item.(map[string]interface{}); ok {
-					if err := checkAmountLimit(itemMap); err != nil {
-						return err
-			}
-				}
-			}
+	} else {
+		// If it's not JSON, check raw string length
+		if len(rawStr) > 100 {
+			return fmt.Errorf("business rule violation: message length (%d) exceeds limit of 100 characters", len(rawStr))
 		}
 	}
+
 	return nil
 }

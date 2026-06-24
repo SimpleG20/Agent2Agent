@@ -5,7 +5,7 @@ descentralizada **Peer-to-Peer**, focada em segurança máxima, soberania absolu
 e mitigação a ataques de engenharia social (Prompt Injection).
 
 O sistema adota o padrão **Identidade Auto-Soberana (SSI)** local utilizando chaves
-Ed25519 (`did:custom:<agent_name>`) e empacotamento seguro **DIDComm v2 (JWS Flat Serialization)**,
+Ed25519 (`did:key:<multicodec>`) e empacotamento seguro **DIDComm v2 (JWS Flat Serialization)**,
 dispensando orquestradores ou blockchains públicas. A resolução de DIDs é feita de forma
 **offline via handshake P2P direto** entre os agentes.
 

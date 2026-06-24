@@ -17,6 +17,10 @@ app = Flask(__name__)
 
 PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(PROJECT_DIR, "data_dashboard")
+CA_BIN = os.path.join(PROJECT_DIR, "credential-authority", "ca-bin")
+CA_DATA_DIR = os.path.join(PROJECT_DIR, "data_ca")
+CA_URL = os.environ.get("CA_URL", "http://localhost:9001")
+CA_PORT = 9001
 
 # Maintain subprocesses dynamically
 subprocesses_dict = {}
@@ -68,7 +72,43 @@ def get_json_file(file_path):
     except Exception:
         return {}
 
+def start_ca():
+    """Start the Credential Authority if not already running."""
+    proc_key = "credential_authority"
+    if is_port_in_use(CA_PORT):
+        # CA already running
+        return True
+    
+    if not os.path.exists(CA_BIN):
+        print(f"  WARNING: CA binary not found at {CA_BIN}")
+        return False
+    
+    print(f"Starting Credential Authority on port {CA_PORT}...")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    ca_log = open(os.path.join(DATA_DIR, "ca.log"), "w")
+    
+    # Use a dedicated CA data directory (default in CA binary is ./data_ca)
+    os.makedirs(CA_DATA_DIR, exist_ok=True)
+    
+    cmd = [
+        CA_BIN,
+        "-port", str(CA_PORT),
+        "-datadir", CA_DATA_DIR,
+    ]
+    subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=ca_log, stderr=ca_log, text=True)
+    time.sleep(2)
+    
+    if subprocesses_dict[proc_key].poll() is not None:
+        print(f"  WARNING: CA failed to start!")
+        return False
+    
+    print("  CA started successfully.")
+    return True
+
 def start_key_guards():
+    # Ensure CA is running first (Key Guards need it with -ca-enabled)
+    start_ca()
+    
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
     registry = load_agents_registry()
     
@@ -79,13 +119,16 @@ def start_key_guards():
             print(f"Starting {name} Key Guard on port {port}...")
             os.makedirs(os.path.join(DATA_DIR, name), exist_ok=True)
             log_file = open(os.path.join(DATA_DIR, f"{name}_key_guard.log"), "w")
-            subprocesses_dict[proc_key] = subprocess.Popen([
+            cmd = [
                 key_guard_bin,
                 "-port", str(port),
                 "-name", name,
                 "-endpoint", f"http://localhost:{port}",
-                "-datadir", DATA_DIR
-            ], stdout=log_file, stderr=log_file, text=True)
+                "-datadir", DATA_DIR,
+                "-ca-url", CA_URL,
+                "-ca-enabled",
+            ]
+            subprocesses_dict[proc_key] = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, text=True)
             started_any = True
 
     if started_any:
@@ -109,6 +152,20 @@ def status():
         # Check active status of Key Guard
         online = is_port_in_use(port)
 
+        # Fetch DID key from Key Guard's agent-info endpoint
+        did = f"did:key:pending-{name}"
+        did_key = ""
+        if online:
+            try:
+                r = requests.get(f"http://localhost:{port}/agent-info", timeout=2)
+                if r.status_code == 200:
+                    info = r.json()
+                    did_key = info.get("did_key", "")
+                    if did_key:
+                        did = did_key
+            except:
+                pass
+
         # Retrieve direct info of peers resolved in peers_store
         db_path = os.path.join(DATA_DIR, name, "cognitive_store.db")
         blacklist_path = os.path.join(DATA_DIR, name, "blacklist.json")
@@ -120,15 +177,29 @@ def status():
         key_guard_blacklist = get_json_file(blacklist_path)
         peers_store = get_json_file(peers_path)
 
+        # Fetch credential info from Key Guard
+        credential = {}
+        if online:
+            try:
+                r = requests.get(f"http://localhost:{port}/credential", timeout=2)
+                if r.status_code == 200:
+                    credential = r.json()
+                else:
+                    credential = {"error": f"status {r.status_code}"}
+            except Exception as e:
+                credential = {"error": str(e)}
+
         agents_status[name] = {
             "name": name,
-            "did": f"did:custom:{name}",
+            "did": did,
+            "did_key": did_key,
             "key_guard_online": online,
             "key_guard_port": port,
             "cognitive_blacklist": cognitive_blacklist,
             "key_guard_blacklist": key_guard_blacklist,
             "peers_store": peers_store,
-            "tx_history": tx_history
+            "tx_history": tx_history,
+            "credential": credential
         }
 
     return jsonify({
@@ -142,16 +213,9 @@ def send_message():
     sender = data.get("sender")
     recipient = data.get("recipient")
     content = data.get("content")
-    amount = data.get("amount")
 
     if not sender or not recipient or not content:
         return jsonify({"error": "Campos obrigatórios ausentes"}), 400
-
-    if amount is not None:
-        try:
-            amount = float(amount)
-        except ValueError:
-            amount = None
 
     registry = load_agents_registry()
     if sender not in registry:
@@ -160,7 +224,7 @@ def send_message():
     port = registry[sender]
     agent = CognitiveAgent(sender, f"http://localhost:{port}", data_dir=DATA_DIR)
     
-    res = agent.tool_send_message(to_did=recipient, content=content, amount=amount)
+    res = agent.tool_send_message(to_did=recipient, content=content)
     return jsonify(res)
 
 @app.route("/api/poll", methods=["POST"])
@@ -227,6 +291,9 @@ def create_agent():
     registry[name] = port
     save_agents_registry(registry)
 
+    # Ensure CA is running before spawning Key Guard
+    start_ca()
+
     # Spawn process
     key_guard_bin = os.path.join(PROJECT_DIR, "key-guard", "key-guard-bin")
     proc_key = f"key_guard_{name}"
@@ -238,7 +305,9 @@ def create_agent():
         "-port", str(port),
         "-name", name,
         "-endpoint", f"http://localhost:{port}",
-        "-datadir", DATA_DIR
+        "-datadir", DATA_DIR,
+        "-ca-url", CA_URL,
+        "-ca-enabled",
     ], stdout=log_file, stderr=log_file, text=True)
     
     # Wait for initialization
@@ -299,6 +368,35 @@ def remove_agent():
 
     return jsonify({"status": "removed", "name": name})
 
+@app.route("/api/blacklist/remove", methods=["POST"])
+def remove_from_blacklist():
+    data = request.json or {}
+    name = data.get("name")
+    did = data.get("did")
+    
+    if not name or not did:
+        return jsonify({"error": "Campos obrigatórios ausentes"}), 400
+        
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agente {name} não encontrado"}), 404
+        
+    port = registry[name]
+    
+    # 1. Remove from SQLite (Cognitive layer)
+    agent = CognitiveAgent(name, f"http://localhost:{port}", data_dir=DATA_DIR)
+    agent.remove_peer_from_blacklist(did)
+    
+    # 2. Remove from Go Key Guard
+    try:
+        r = requests.delete(f"http://localhost:{port}/blacklist", json={"did": did}, timeout=5)
+        if r.status_code == 200:
+            return jsonify({"status": "removed"})
+        else:
+            return jsonify({"error": f"Erro do Key Guard: {r.text}"}), r.status_code
+    except Exception as e:
+        return jsonify({"error": f"Falha ao sincronizar com o Key Guard: {str(e)}"}), 500
+
 @app.route("/api/db_view")
 def db_view():
     name = request.args.get("name")
@@ -338,9 +436,116 @@ def db_view():
         "peers_store": peers_store
     })
 
+@app.route("/api/ca/status")
+def ca_status():
+    """Returns CA status: online/offline, public key, VC counts."""
+    try:
+        r = requests.get(f"{CA_URL}/ca/info", timeout=2)
+        if r.status_code == 200:
+            info = r.json()
+            return jsonify({"online": True, "did_key": info.get("did", ""), "public_key": info.get("publicKeyBase64", ""), "total_issued": info.get("totalIssued", 0), "total_revoked": info.get("totalRevoked", 0)})
+        return jsonify({"online": False, "error": f"CA returned {r.status_code}"})
+    except Exception as e:
+        return jsonify({"online": False, "error": str(e)})
+
+@app.route("/api/ca/credentials")
+def ca_credentials():
+    """Returns list of all credentials issued by the CA."""
+    try:
+        r = requests.get(f"{CA_URL}/credential/list", timeout=2)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": f"CA returned {r.status_code}", "credentials": []})
+    except Exception as e:
+        return jsonify({"error": str(e), "credentials": []})
+
+@app.route("/api/credential/revoke", methods=["POST"])
+def revoke_credential():
+    """Revokes an agent's credential via the CA."""
+    data = request.json or {}
+    agent_name = data.get("name")
+    credential_id = data.get("credential_id")
+
+    if not agent_name:
+        return jsonify({"error": "Agent name required"}), 400
+    if not credential_id:
+        return jsonify({"error": "Credential ID required"}), 400
+
+    # Revoke via CA (CA expects camelCase credentialId)
+    try:
+        r = requests.post(f"{CA_URL}/credential/revoke", json={"credentialId": credential_id}, timeout=5)
+        if r.status_code != 200:
+            return jsonify({"error": r.text}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    # Notify all agents to refresh their CRL cache immediately
+    registry = load_agents_registry()
+    notified = []
+    for agent_name, agent_port in registry.items():
+        try:
+            refresh_url = f"http://localhost:{agent_port}/credential/refresh-status"
+            requests.post(refresh_url, timeout=3)
+            notified.append(agent_name)
+        except Exception as e:
+            print(f"  [!] Failed to notify {agent_name}: {e}")
+
+    return jsonify({
+        "status": "revoked",
+        "credential_id": credential_id,
+        "agents_notified": notified
+    })
+
+@app.route("/api/agent-card")
+def agent_card_view():
+    """Fetches the Agent Card from a specific key guard."""
+    name = request.args.get("name")
+    if not name:
+        return jsonify({"error": "Name parameter required"}), 400
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+    port = registry[name]
+    try:
+        r = requests.get(f"http://localhost:{port}/.well-known/agent-card", timeout=3)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": f"Agent card returned {r.status_code}"}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/credential/request-issue", methods=["POST"])
+def credential_request_issue():
+    """Requests a new VC for an agent from the CA via the Key Guard."""
+    data = request.json or {}
+    name = data.get("name")
+    if not name:
+        return jsonify({"error": "Agent name required"}), 400
+    registry = load_agents_registry()
+    if name not in registry:
+        return jsonify({"error": f"Agent {name} not found"}), 404
+    port = registry[name]
+    try:
+        r = requests.post(f"http://localhost:{port}/credential/request-issue", json={}, timeout=5)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": r.text}), r.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/reset", methods=["POST"])
 def reset_system():
-    # Kill all running Key Guards
+    # 0. Revoke all credentials in CA before cleaning
+    try:
+        r = requests.post(f"{CA_URL}/admin/reset", json={}, timeout=5)
+        if r.status_code == 200:
+            print("  CA credentials revoked/cleared.")
+        else:
+            print(f"  CA reset returned {r.status_code}")
+    except Exception as e:
+        print(f"  Could not reach CA for reset: {e}")
+
+    # 1. Kill all running Key Guards
     for key in list(subprocesses_dict.keys()):
         proc = subprocesses_dict[key]
         if proc:
@@ -351,26 +556,36 @@ def reset_system():
                 pass
             subprocesses_dict[key] = None
 
-    # Force kill any hanging key-guard-bin
+    # 2. Force kill any hanging processes
     try:
         subprocess.run(["pkill", "-f", "key-guard-bin"])
     except Exception:
         pass
+    try:
+        subprocess.run(["pkill", "-f", "ca-bin"])
+    except Exception:
+        pass
 
-    # Reset registry to default alfa/beta
-    default_registry = {"alfa": 8001, "beta": 8002}
-    save_agents_registry(default_registry)
+    # 3. Clean CA data directory
+    if os.path.exists(CA_DATA_DIR):
+        try:
+            shutil.rmtree(CA_DATA_DIR)
+        except Exception:
+            pass
 
-    # Clean data dir
+    # 4. Clean dashboard data dir
     if os.path.exists(DATA_DIR):
         try:
             shutil.rmtree(DATA_DIR)
         except Exception:
             pass
     os.makedirs(DATA_DIR, exist_ok=True)
+
+    # 5. Reset registry to default alfa/beta
+    default_registry = {"alfa": 8001, "beta": 8002}
     save_agents_registry(default_registry)
 
-    # Restart default Key Guards
+    # 6. Restart default Key Guards (this also starts CA)
     success = start_key_guards()
     
     return jsonify({"status": "reset_success", "key_guards_restarted": success})
